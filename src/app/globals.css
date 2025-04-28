@@ -61,11 +61,15 @@ body {
 }
 
 .animate-blob {
-  animation: blob 7s infinite;
+  animation: blob 10s infinite ease-in-out;
 }
 
 .animation-delay-2000 {
   animation-delay: 2s;
+}
+
+.animation-delay-3000 {
+  animation-delay: 3s;
 }
 
 .animation-delay-4000 {
@@ -74,5 +78,44 @@ body {
 
 .animate-text {
   animation: text-gradient 8s linear infinite;
+  background-size: 200% 200%;
+}
+
+/* Animacja przejścia między motywami */
+* {
+  transition-property: color, background-color, border-color, text-decoration-color, fill, stroke;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  transition-duration: 150ms;
+}
+
+/* Animacje fade-in dla strony głównej */
+.animate-fade-in {
+  animation: fadeIn 0.8s ease-in forwards;
+}
+
+.animate-fade-in-delay {
+  animation: fadeIn 0.8s ease-in 0.2s forwards;
+  opacity: 0;
+}
+
+.animate-fade-in-delay-2 {
+  animation: fadeIn 0.8s ease-in 0.4s forwards;
+  opacity: 0;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Animacja gradientu dla demo */
+@keyframes gradient-shift {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+.animate-gradient {
+  animation: gradient-shift 8s ease infinite;
   background-size: 200% 200%;
 }

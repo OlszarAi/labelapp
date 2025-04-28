@@ -5,27 +5,49 @@ import { useState, useEffect } from "react";
 export default function ThemeToggle() {
   // Stan dla motywu (jasny/ciemny)
   const [isDarkMode, setIsDarkMode] = useState(false);
+  const [isMounted, setIsMounted] = useState(false);
 
-  // Efekt do wykrywania preferencji systemowych przy montowaniu komponentu
+  // Efekt do wykrywania preferencji przy montowaniu komponentu
   useEffect(() => {
-    // Sprawdź czy użytkownik ma ustawiony ciemny motyw w systemie
+    setIsMounted(true);
+    
     if (typeof window !== 'undefined') {
-      const prefersDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches;
-      setIsDarkMode(prefersDarkMode);
+      // Sprawdź najpierw localStorage
+      const savedTheme = localStorage.getItem('theme');
       
-      // Zaaplikuj klasę dark do html jeśli preferencja systemowa to tryb ciemny
-      if (prefersDarkMode) {
-        document.documentElement.classList.add('dark');
+      if (savedTheme) {
+        // Jeśli użytkownik wcześniej wybrał motyw, użyj go
+        const isDark = savedTheme === 'dark';
+        setIsDarkMode(isDark);
+        
+        if (isDark) {
+          document.documentElement.classList.add('dark');
+        } else {
+          document.documentElement.classList.remove('dark');
+        }
+      } else {
+        // W przeciwnym razie sprawdź preferencje systemowe
+        const prefersDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        setIsDarkMode(prefersDarkMode);
+        
+        if (prefersDarkMode) {
+          document.documentElement.classList.add('dark');
+        } else {
+          document.documentElement.classList.remove('dark');
+        }
       }
       
       // Nasłuchuj zmian w preferencjach systemowych
       const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
       const handleChange = (e: MediaQueryListEvent) => {
-        setIsDarkMode(e.matches);
-        if (e.matches) {
-          document.documentElement.classList.add('dark');
-        } else {
-          document.documentElement.classList.remove('dark');
+        // Aktualizuj tylko jeśli użytkownik nie wybrał ręcznie motywu
+        if (!localStorage.getItem('theme')) {
+          setIsDarkMode(e.matches);
+          if (e.matches) {
+            document.documentElement.classList.add('dark');
+          } else {
+            document.documentElement.classList.remove('dark');
+          }
         }
       };
       
@@ -36,9 +58,24 @@ export default function ThemeToggle() {
 
   // Funkcja do przełączania motywu
   const toggleTheme = () => {
-    setIsDarkMode(!isDarkMode);
-    document.documentElement.classList.toggle('dark');
+    const newDarkMode = !isDarkMode;
+    setIsDarkMode(newDarkMode);
+    
+    // Aktualizuj klasę w dokumencie
+    if (newDarkMode) {
+      document.documentElement.classList.add('dark');
+      localStorage.setItem('theme', 'dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+      localStorage.setItem('theme', 'light');
+    }
   };
+
+  // Nie renderuj przycisku dopóki nie sprawdzimy preferencji
+  // aby uniknąć migotania interfejsu
+  if (!isMounted) {
+    return null;
+  }
 
   return (
     <button
