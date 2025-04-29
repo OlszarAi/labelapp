@@ -2,6 +2,7 @@
 
 import { useEffect, useRef } from 'react';
 import { v4 as uuidv4 } from 'uuid';
+import ColorPickerTab from './ColorPickerTab';
 
 interface LabelElement {
   id: string;
@@ -391,6 +392,14 @@ export default function EditorSidebar({
                           className="py-1 px-2 block w-full border-gray-200 rounded-md text-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-neutral-900 dark:border-neutral-700 dark:text-neutral-400"
                         />
                       </div>
+                      
+                      <div className="mt-3">
+                        <ColorPickerTab
+                          color={element.color || '#333333'}
+                          onChange={(color) => updateElementProperty(element.id, 'color', color)}
+                          presetColors={predefinedColors}
+                        />
+                      </div>
                     </div>
                   ))}
               </div>
@@ -523,6 +532,14 @@ export default function EditorSidebar({
                           </button>
                         </div>
                       </div>
+                      
+                      <div className="mt-3">
+                        <ColorPickerTab
+                          color={element.color || '#333333'}
+                          onChange={(color) => updateElementProperty(element.id, 'color', color)}
+                          presetColors={predefinedColors}
+                        />
+                      </div>
                     </div>
                   ))}
               </div>
@@ -625,6 +642,14 @@ export default function EditorSidebar({
                           className="py-1 px-2 block w-full border-gray-200 rounded-md text-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-neutral-900 dark:border-neutral-700 dark:text-neutral-400"
                         />
                       </div>
+
+                      <div className="mt-3">
+                        <ColorPickerTab
+                          color={element.color || '#333333'}
+                          onChange={(color) => updateElementProperty(element.id, 'color', color)}
+                          presetColors={predefinedColors}
+                        />
+                      </div>
                     </div>
                   ))}
               </div>
@@ -725,6 +750,14 @@ export default function EditorSidebar({
                           value={element.value}
                           onChange={(e) => updateElementProperty(element.id, 'value', e.target.value)}
                           className="py-1 px-2 block w-full border-gray-200 rounded-md text-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-neutral-900 dark:border-neutral-700 dark:text-neutral-400"
+                        />
+                      </div>
+
+                      <div className="mt-3">
+                        <ColorPickerTab
+                          color={element.color || '#333333'}
+                          onChange={(color) => updateElementProperty(element.id, 'color', color)}
+                          presetColors={predefinedColors}
                         />
                       </div>
                     </div>

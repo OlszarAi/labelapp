@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import EditorSidebar from '@/components/labels/EditorSidebar';
 import LabelEditor from '@/components/labels/LabelEditor';
 import { v4 as uuidv4 } from 'uuid';
@@ -39,6 +39,13 @@ export default function EditorPage() {
   const [isSaving, setIsSaving] = useState<boolean>(false);
   const [saveSuccess, setSaveSuccess] = useState<boolean | null>(null);
   
+  // Stany do kontrolowania szerokości sidebara
+  const [sidebarWidth, setSidebarWidth] = useState<number>(300); // Domyślna szerokość 300px zamiast 256px (w-64)
+  const [isDragging, setIsDragging] = useState<boolean>(false);
+  const sidebarRef = useRef<HTMLDivElement>(null);
+  const minSidebarWidth = 200; // Minimalna szerokość sidebara
+  const maxSidebarWidth = 500; // Maksymalna szerokość sidebara
+  
   // Początkowe ustawienia etykiety
   const [labelSettings, setLabelSettings] = useState<LabelSettings>({
     width: 90,
@@ -67,6 +74,45 @@ export default function EditorPage() {
       }
     }
   }, [searchParams]);
+
+  // Obsługa przeciągania sidebara
+  const handleMouseDown = (e: React.MouseEvent) => {
+    e.preventDefault();
+    setIsDragging(true);
+  };
+
+  const handleMouseUp = () => {
+    setIsDragging(false);
+  };
+
+  const handleMouseMove = (e: MouseEvent) => {
+    if (!isDragging) return;
+    
+    // Oblicz nową szerokość na podstawie pozycji kursora
+    const newWidth = e.clientX;
+    
+    // Ograniczenie szerokości do minimalnej i maksymalnej wartości
+    if (newWidth >= minSidebarWidth && newWidth <= maxSidebarWidth) {
+      setSidebarWidth(newWidth);
+    }
+  };
+
+  // Dodaj i usuń listenery gdy zmienia się stan przeciągania
+  useEffect(() => {
+    if (isDragging) {
+      window.addEventListener('mousemove', handleMouseMove);
+      window.addEventListener('mouseup', handleMouseUp);
+    } else {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+    }
+    
+    // Czyszczenie listenerów przy odmontowaniu komponentu
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      window.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [isDragging]);
 
   // Funkcja do eksportu etykiety do PDF
   const handleExportToPDF = async () => {
@@ -171,17 +217,32 @@ export default function EditorPage() {
       {/* End Breadcrumb */}
 
       {/* Sidebar */}
-      <div id="hs-application-sidebar" className="hs-overlay hs-overlay-open:translate-x-0 -translate-x-full transition-all duration-300 transform hidden fixed top-0 start-0 bottom-0 z-[60] w-64 bg-white border-e border-gray-200 lg:block lg:translate-x-0 lg:end-auto lg:bottom-0 [--overlay-backdrop:static] dark:bg-neutral-800 dark:border-neutral-700">
+      <div 
+        id="hs-application-sidebar" 
+        ref={sidebarRef}
+        style={{ width: `${sidebarWidth}px` }}
+        className="hs-overlay hs-overlay-open:translate-x-0 -translate-x-full transition-all duration-300 transform hidden fixed top-0 start-0 bottom-0 z-[60] bg-white border-e border-gray-200 lg:block lg:translate-x-0 lg:end-auto lg:bottom-0 [--overlay-backdrop:static] dark:bg-neutral-800 dark:border-neutral-700"
+      >
         <EditorSidebar 
           labelSettings={labelSettings}
           setLabelSettings={setLabelSettings}
           selectedElementId={selectedElementId}
         />
+        
+        {/* Uchwyt do zmiany szerokości */}
+        <div 
+          className="absolute top-0 right-0 bottom-0 w-1 cursor-ew-resize hover:bg-blue-500/50 transition-colors"
+          onMouseDown={handleMouseDown}
+          title="Przeciągnij, aby zmienić szerokość"
+        ></div>
       </div>
       {/* End Sidebar */}
 
       {/* Content */}
-      <div className="w-full pt-10 px-4 sm:px-6 md:px-8 lg:ps-72">
+      <div 
+        style={{ paddingLeft: `${sidebarWidth}px` }} 
+        className="w-full pt-10 px-4 sm:px-6 md:px-8 lg:ps-8 transition-all"
+      >
         <div className="max-w-[85rem] mx-auto">
           {/* Nagłówek sekcji */}
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-3 mb-6">
