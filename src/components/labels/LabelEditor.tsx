@@ -2,9 +2,24 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
+import { Label, LabelElement } from '@/lib/types/label.types';
 
 interface LabelEditorProps {
-  labelSettings: any;
+  labelSettings: {
+    width: number;
+    height: number;
+    unit: string;
+    elements: Array<{
+      id: string;
+      type: string;
+      x: number;
+      y: number;
+      width?: number;
+      value?: string;
+      size?: number;
+      color?: string;
+    }>;
+  };
   setLabelSettings: (settings: any) => void;
   selectedElementId: string | null;
   setSelectedElementId: (id: string | null) => void;
@@ -85,7 +100,7 @@ export default function LabelEditor({
     setSelectedElementId(elementId);
     
     // Znajdź wybrany element
-    const element = labelSettings.elements.find((el: any) => el.id === elementId);
+    const element = labelSettings.elements.find((el) => el.id === elementId);
     if (!element) return;
     
     // Oblicz rzeczywisty offset kliknięcia względem początku elementu
@@ -127,7 +142,7 @@ export default function LabelEditor({
     const clampedY = Math.max(0, Math.min(labelSettings.height, yInUnits));
     
     // Aktualizuj pozycję elementu
-    const updatedElements = labelSettings.elements.map((element: any) => {
+    const updatedElements = labelSettings.elements.map((element) => {
       if (element.id === selectedElementId) {
         return {
           ...element,
@@ -256,7 +271,7 @@ export default function LabelEditor({
             </div>
             
             {/* Renderowanie elementów */}
-            {labelSettings.elements.map((element: any) => {
+            {labelSettings.elements.map((element) => {
               const isSelected = selectedElementId === element.id;
               const posX = calculatePixelSize(element.x, labelSettings.unit) * zoomLevel;
               const posY = calculatePixelSize(element.y, labelSettings.unit) * zoomLevel;
@@ -265,7 +280,7 @@ export default function LabelEditor({
               
               switch (element.type) {
                 case 'qrCode':
-                  const qrSize = calculatePixelSize(element.width, labelSettings.unit) * zoomLevel;
+                  const qrSize = calculatePixelSize(element.width || 20, labelSettings.unit) * zoomLevel;
                   return (
                     <div 
                       key={element.id}

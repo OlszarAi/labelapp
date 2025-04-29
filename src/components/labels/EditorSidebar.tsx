@@ -3,9 +3,28 @@
 import { useEffect, useRef } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 
+interface LabelElement {
+  id: string;
+  type: string;
+  x: number;
+  y: number;
+  width?: number;
+  size?: number;
+  value?: string;
+  color?: string;
+  uuidLength?: number;
+}
+
+interface LabelSettings {
+  width: number;
+  height: number;
+  unit: string;
+  elements: LabelElement[];
+}
+
 interface EditorSidebarProps {
-  labelSettings: any;
-  setLabelSettings: (settings: any) => void;
+  labelSettings: LabelSettings;
+  setLabelSettings: (settings: LabelSettings) => void;
   selectedElementId: string | null;
 }
 
@@ -81,7 +100,7 @@ export default function EditorSidebar({
 
   // Funkcja do aktualizacji właściwości elementu
   const updateElementProperty = (id: string, property: string, value: any) => {
-    const updatedElements = labelSettings.elements.map((element: any) => {
+    const updatedElements = labelSettings.elements.map((element: LabelElement) => {
       if (element.id === id) {
         return {
           ...element,
@@ -99,7 +118,7 @@ export default function EditorSidebar({
 
   // Funkcja do aktualizacji długości UUID i regenerowania jego wartości
   const updateUuidLength = (id: string, length: number) => {
-    const updatedElements = labelSettings.elements.map((element: any) => {
+    const updatedElements = labelSettings.elements.map((element: LabelElement) => {
       if (element.id === id) {
         return {
           ...element,
@@ -118,7 +137,7 @@ export default function EditorSidebar({
 
   // Funkcja do regenerowania UUID z zachowaniem długości
   const regenerateUuid = (id: string) => {
-    const element = labelSettings.elements.find((el: any) => el.id === id);
+    const element = labelSettings.elements.find((el: LabelElement) => el.id === id);
     if (!element) return;
 
     const length = element.uuidLength || 36;
@@ -127,7 +146,7 @@ export default function EditorSidebar({
 
   // Funkcja do usuwania elementu
   const removeElement = (id: string) => {
-    const updatedElements = labelSettings.elements.filter((element: any) => element.id !== id);
+    const updatedElements = labelSettings.elements.filter((element: LabelElement) => element.id !== id);
     setLabelSettings({
       ...labelSettings,
       elements: updatedElements
@@ -150,7 +169,7 @@ export default function EditorSidebar({
   useEffect(() => {
     if (!selectedElementId) return;
 
-    const selectedElement = labelSettings.elements.find((el: any) => el.id === selectedElementId);
+    const selectedElement = labelSettings.elements.find((el: LabelElement) => el.id === selectedElementId);
     if (!selectedElement) return;
 
     // Przewijanie do odpowiedniej sekcji w zależności od typu elementu
@@ -172,7 +191,7 @@ export default function EditorSidebar({
 
   // Znajdź wybrany element, jeśli istnieje
   const selectedElement = selectedElementId
-    ? labelSettings.elements.find((el: any) => el.id === selectedElementId)
+    ? labelSettings.elements.find((el: LabelElement) => el.id === selectedElementId)
     : null;
 
   return (
@@ -262,7 +281,7 @@ export default function EditorSidebar({
                 className="py-2 px-3 inline-flex justify-center items-center gap-2 rounded-md border font-medium bg-white text-gray-700 shadow-sm align-middle hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-white focus:ring-blue-600 transition-all text-sm dark:bg-neutral-900 dark:hover:bg-neutral-800 dark:border-neutral-700 dark:text-neutral-400 dark:hover:text-white dark:focus:ring-offset-neutral-900"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 21h19.5m-18-18v18m10.5-18v18m6-13.5V21M6.75 6.75h.75m-.75 3h.75m-.75 3h.75m3-6h.75m-.75 3h.75m-.75 3h.75M6.75 21v-3.375c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21M3 3h12m-.75 4.5H21m-3.75 3.75h.008v.008h-.008v-.008Zm0 3h.008v.008h-.008v-.008Zm0 3h.008v.008h-.008v-.008Z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" d="m21 7.5-9-5.25L3 7.5m18 0-9 5.25m9-5.25v9l-9 5.25M3 7.5l9 5.25M3 7.5v9l9 5.25m0-9v9" />
                 </svg>
                 Firma
               </button>
@@ -273,7 +292,7 @@ export default function EditorSidebar({
                 className="py-2 px-3 inline-flex justify-center items-center gap-2 rounded-md border font-medium bg-white text-gray-700 shadow-sm align-middle hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-white focus:ring-blue-600 transition-all text-sm dark:bg-neutral-900 dark:hover:bg-neutral-800 dark:border-neutral-700 dark:text-neutral-400 dark:hover:text-white dark:focus:ring-offset-neutral-900"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="m21 7.5-9-5.25L3 7.5m18 0-9 5.25m9-5.25v9l-9 5.25M3 7.5l9 5.25M3 7.5v9l9 5.25m0-9v9" />
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 3.75a.75.75 0 0 1 .75.75v6.75h6.75a.75.75 0 0 1 0 1.5h-6.75v6.75a.75.75 0 0 1-1.5 0v-6.75H4.5a.75.75 0 0 1 0-1.5h6.75V4.5a.75.75 0 0 1 .75-.75Z" clipRule="evenodd" />
                 </svg>
                 Produkt
               </button>
@@ -304,11 +323,11 @@ export default function EditorSidebar({
               </div>
             </div>
 
-            {labelSettings.elements.filter((el: any) => el.type === 'qrCode').length > 0 ? (
+            {labelSettings.elements.filter((el: LabelElement) => el.type === 'qrCode').length > 0 ? (
               <div className="space-y-4">
                 {labelSettings.elements
-                  .filter((el: any) => el.type === 'qrCode')
-                  .map((element: any) => (
+                  .filter((el: LabelElement) => el.type === 'qrCode')
+                  .map((element: LabelElement) => (
                     <div
                       key={element.id}
                       className={`p-3 border rounded-md ${
@@ -406,11 +425,11 @@ export default function EditorSidebar({
               </div>
             </div>
 
-            {labelSettings.elements.filter((el: any) => el.type === 'uuidText').length > 0 ? (
+            {labelSettings.elements.filter((el: LabelElement) => el.type === 'uuidText').length > 0 ? (
               <div className="space-y-4">
                 {labelSettings.elements
-                  .filter((el: any) => el.type === 'uuidText')
-                  .map((element: any) => (
+                  .filter((el: LabelElement) => el.type === 'uuidText')
+                  .map((element: LabelElement) => (
                     <div
                       key={element.id}
                       className={`p-3 border rounded-md ${
@@ -538,11 +557,11 @@ export default function EditorSidebar({
               </div>
             </div>
 
-            {labelSettings.elements.filter((el: any) => el.type === 'company').length > 0 ? (
+            {labelSettings.elements.filter((el: LabelElement) => el.type === 'company').length > 0 ? (
               <div className="space-y-4">
                 {labelSettings.elements
-                  .filter((el: any) => el.type === 'company')
-                  .map((element: any) => (
+                  .filter((el: LabelElement) => el.type === 'company')
+                  .map((element: LabelElement) => (
                     <div
                       key={element.id}
                       className={`p-3 border rounded-md ${
@@ -640,11 +659,11 @@ export default function EditorSidebar({
               </div>
             </div>
 
-            {labelSettings.elements.filter((el: any) => el.type === 'product').length > 0 ? (
+            {labelSettings.elements.filter((el: LabelElement) => el.type === 'product').length > 0 ? (
               <div className="space-y-4">
                 {labelSettings.elements
-                  .filter((el: any) => el.type === 'product')
-                  .map((element: any) => (
+                  .filter((el: LabelElement) => el.type === 'product')
+                  .map((element: LabelElement) => (
                     <div
                       key={element.id}
                       className={`p-3 border rounded-md ${

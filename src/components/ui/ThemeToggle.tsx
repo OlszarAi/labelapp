@@ -3,65 +3,29 @@
 import { useState, useEffect } from "react";
 
 export default function ThemeToggle() {
-  // Stan dla motywu (jasny/ciemny)
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
+  const [isAnimating, setIsAnimating] = useState(false);
 
-  // Efekt do wykrywania preferencji przy montowaniu komponentu
+  // Effect to detect preferences on component mount
   useEffect(() => {
     setIsMounted(true);
     
     if (typeof window !== 'undefined') {
-      // Sprawdź najpierw localStorage
-      const savedTheme = localStorage.getItem('theme');
-      
-      if (savedTheme) {
-        // Jeśli użytkownik wcześniej wybrał motyw, użyj go
-        const isDark = savedTheme === 'dark';
-        setIsDarkMode(isDark);
-        
-        if (isDark) {
-          document.documentElement.classList.add('dark');
-        } else {
-          document.documentElement.classList.remove('dark');
-        }
-      } else {
-        // W przeciwnym razie sprawdź preferencje systemowe
-        const prefersDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches;
-        setIsDarkMode(prefersDarkMode);
-        
-        if (prefersDarkMode) {
-          document.documentElement.classList.add('dark');
-        } else {
-          document.documentElement.classList.remove('dark');
-        }
-      }
-      
-      // Nasłuchuj zmian w preferencjach systemowych
-      const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
-      const handleChange = (e: MediaQueryListEvent) => {
-        // Aktualizuj tylko jeśli użytkownik nie wybrał ręcznie motywu
-        if (!localStorage.getItem('theme')) {
-          setIsDarkMode(e.matches);
-          if (e.matches) {
-            document.documentElement.classList.add('dark');
-          } else {
-            document.documentElement.classList.remove('dark');
-          }
-        }
-      };
-      
-      mediaQuery.addEventListener('change', handleChange);
-      return () => mediaQuery.removeEventListener('change', handleChange);
+      const isDark = document.documentElement.classList.contains('dark');
+      setIsDarkMode(isDark);
     }
   }, []);
 
-  // Funkcja do przełączania motywu
+  // Function to toggle theme with animation
   const toggleTheme = () => {
+    if (isAnimating) return;
+    
+    setIsAnimating(true);
     const newDarkMode = !isDarkMode;
     setIsDarkMode(newDarkMode);
     
-    // Aktualizuj klasę w dokumencie
+    // Update document class
     if (newDarkMode) {
       document.documentElement.classList.add('dark');
       localStorage.setItem('theme', 'dark');
@@ -69,10 +33,15 @@ export default function ThemeToggle() {
       document.documentElement.classList.remove('dark');
       localStorage.setItem('theme', 'light');
     }
+    
+    // Reset animation state after transition completes
+    setTimeout(() => {
+      setIsAnimating(false);
+    }, 800);
   };
 
-  // Nie renderuj przycisku dopóki nie sprawdzimy preferencji
-  // aby uniknąć migotania interfejsu
+  // Don't render button until we check preferences
+  // to avoid UI flickering
   if (!isMounted) {
     return null;
   }
@@ -80,18 +49,51 @@ export default function ThemeToggle() {
   return (
     <button
       onClick={toggleTheme}
-      className="p-2 rounded-full bg-white/20 dark:bg-black/20 backdrop-blur-sm hover:bg-white/30 dark:hover:bg-black/30 transition-all shadow-lg"
+      disabled={isAnimating}
+      className={`relative overflow-hidden p-2 rounded-full transition-all duration-500 ${
+        isDarkMode
+          ? "bg-gradient-to-b from-indigo-800 to-violet-900 text-yellow-300"
+          : "bg-gradient-to-b from-blue-100 to-indigo-100 text-blue-600"
+      } shadow-lg ${isAnimating ? "scale-90" : "hover:scale-105"}`}
       aria-label={isDarkMode ? "Przełącz na jasny motyw" : "Przełącz na ciemny motyw"}
     >
-      {isDarkMode ? (
-        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6">
-          <path strokeLinecap="round" strokeLinejoin="round" d="M12 3v2.25m6.364.386-1.591 1.591M21 12h-2.25m-.386 6.364-1.591-1.591M12 18.75V21m-4.773-4.227-1.591 1.591M5.25 12H3m4.227-4.773L5.636 5.636M15.75 12a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0Z" />
-        </svg>
-      ) : (
-        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6">
-          <path strokeLinecap="round" strokeLinejoin="round" d="M21.752 15.002A9.72 9.72 0 0 1 18 15.75c-5.385 0-9.75-4.365-9.75-9.75 0-1.33.266-2.597.748-3.752A9.753 9.753 0 0 0 3 11.25C3 16.635 7.365 21 12.75 21a9.753 9.753 0 0 0 9.002-5.998Z" />
-        </svg>
-      )}
+      {/* Glowing backdrop in dark mode */}
+      <div className={`absolute inset-0 bg-indigo-400/10 dark:bg-indigo-400/30 rounded-full blur-xl transition-opacity duration-500 ${isAnimating ? 'opacity-100' : 'opacity-0'}`}></div>
+      
+      {/* Inner content with icons */}
+      <div className="relative z-10 w-6 h-6">
+        {/* Sun icon */}
+        <div
+          className={`absolute inset-0 transition-all duration-700 transform ${
+            isDarkMode ? "opacity-100 rotate-0 scale-100" : "opacity-0 rotate-90 scale-50"
+          }`}
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-6 h-6">
+            <path d="M12 2.25a.75.75 0 01.75.75v2.25a.75.75 0 01-1.5 0V3a.75.75 0 01.75-.75zM7.5 12a4.5 4.5 0 119 0 4.5 4.5 0 01-9 0zM18.894 6.166a.75.75 0 00-1.06-1.06l-1.591 1.59a.75.75 0 101.06 1.061l1.591-1.59zM21.75 12a.75.75 0 01-.75.75h-2.25a.75.75 0 010-1.5H21a.75.75 0 01.75.75zM17.834 18.894a.75.75 0 001.06-1.06l-1.59-1.591a.75.75 0 10-1.061 1.06l1.59 1.591zM12 18a.75.75 0 01.75.75V21a.75.75 0 01-1.5 0v-2.25A.75.75 0 0112 18zM7.758 17.303a.75.75 0 00-1.061-1.06l-1.591 1.59a.75.75 0 001.06 1.061l1.591-1.59zM6 12a.75.75 0 01-.75.75H3a.75.75 0 010-1.5h2.25A.75.75 0 016 12zM6.697 7.757a.75.75 0 001.06-1.06l-1.59-1.591a.75.75 0 00-1.061 1.06l1.59 1.591z" />
+          </svg>
+        </div>
+        
+        {/* Moon icon */}
+        <div
+          className={`absolute inset-0 transition-all duration-700 transform ${
+            isDarkMode ? "opacity-0 -rotate-90 scale-50" : "opacity-100 rotate-0 scale-100"
+          }`}
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-6 h-6">
+            <path fillRule="evenodd" d="M9.528 1.718a.75.75 0 01.162.819A8.97 8.97 0 009 6a9 9 0 009 9 8.97 8.97 0 003.463-.69.75.75 0 01.981.98 10.503 10.503 0 01-9.694 6.46c-5.799 0-10.5-4.701-10.5-10.5 0-4.368 2.667-8.112 6.46-9.694a.75.75 0 01.818.162z" clipRule="evenodd" />
+          </svg>
+        </div>
+      </div>
+      
+      {/* Stars appearing animation in dark mode */}
+      <div className="absolute inset-0 pointer-events-none">
+        <div className={`absolute top-1 right-1 w-1 h-1 rounded-full bg-yellow-200 transition-opacity duration-500 ${isDarkMode ? 'opacity-100' : 'opacity-0'} delay-300`}></div>
+        <div className={`absolute bottom-1 left-2 w-0.5 h-0.5 rounded-full bg-yellow-200 transition-opacity duration-500 ${isDarkMode ? 'opacity-100' : 'opacity-0'} delay-500`}></div>
+        <div className={`absolute top-2 left-1 w-0.5 h-0.5 rounded-full bg-yellow-200 transition-opacity duration-500 ${isDarkMode ? 'opacity-100' : 'opacity-0'} delay-100`}></div>
+      </div>
+      
+      {/* Visual feedback effect when clicking */}
+      <span className={`absolute inset-0 rounded-full bg-white opacity-0 ${isAnimating ? 'animate-ping' : ''}`}></span>
     </button>
   );
 }
