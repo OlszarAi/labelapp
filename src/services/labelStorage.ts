@@ -12,262 +12,238 @@ import { v4 as uuidv4 } from 'uuid';
 export interface SavedProject {
   id: string;
   name: string;
-  description?: string;
   label: Label;
   createdAt: string;
   updatedAt: string;
-  tags?: string[];
 }
 
-export interface SavedProjectsList {
-  projects: SavedProject[];
-  lastUpdated: string;
+export interface Label {
+  id: string;
+  name: string;
+  width: number;
+  height: number;
+  elements: LabelElement[];
+  createdAt?: string;
+  updatedAt?: string;
 }
 
-// Constants
-const STORAGE_KEY_PROJECTS = 'labelapp_saved_projects';
-const STORAGE_KEY_RECENT = 'labelapp_recent_projects';
+export interface LabelElement {
+  id: string;
+  type: string;
+  x: number;
+  y: number;
+  width?: number;
+  height?: number;
+  size?: number;
+  value?: string;
+  color?: string;
+  rotation?: number;
+  properties?: any;
+}
 
-/**
- * Service for managing label storage
- */
+const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
+
 export class LabelStorageService {
-  /**
-   * Save a label project to local storage
-   * 
-   * @param name Project name
-   * @param label The label to save
-   * @param description Optional project description
-   * @param tags Optional tags for the project
-   * @returns The saved project with generated ID
-   */
-  static saveProject(
-    name: string, 
-    label: Label, 
-    description: string = '', 
-    tags: string[] = []
-  ): SavedProject {
-    // Get existing projects
-    const existingProjects = this.getProjects();
-    
-    // Check if this is an update to an existing project
-    const existingProject = existingProjects.projects.find(p => p.id === label.id);
-    
-    const now = new Date().toISOString();
-    let updatedProject: SavedProject;
-    
-    if (existingProject) {
-      // Update existing project
-      updatedProject = {
-        ...existingProject,
-        name,
-        description,
-        label,
-        updatedAt: now,
-        tags
-      };
-      
-      // Replace the existing project
-      const updatedProjects = {
-        projects: existingProjects.projects.map(p => 
-          p.id === label.id ? updatedProject : p
-        ),
-        lastUpdated: now
-      };
-      
-      // Save to local storage
-      localStorage.setItem(STORAGE_KEY_PROJECTS, JSON.stringify(updatedProjects));
-    } else {
-      // Create a new project
-      const newProject: SavedProject = {
-        id: uuidv4(),
-        name,
-        description,
-        label: {
-          ...label,
-          id: label.id || uuidv4() // Ensure label has an ID
-        },
-        createdAt: now,
-        updatedAt: now,
-        tags
-      };
-      
-      // Add to existing projects
-      const updatedProjects = {
-        projects: [...existingProjects.projects, newProject],
-        lastUpdated: now
-      };
-      
-      // Save to local storage
-      localStorage.setItem(STORAGE_KEY_PROJECTS, JSON.stringify(updatedProjects));
-      
-      updatedProject = newProject;
-    }
-    
-    // Update recent projects
-    this.updateRecentProjects(updatedProject.id);
-    
-    return updatedProject;
-  }
+  // For compatibility with existing code, we'll keep the localStorage methods
+  // and add new API methods to work with the backend
   
-  /**
-   * Get all saved projects
-   * 
-   * @returns List of all saved projects
-   */
-  static getProjects(): SavedProjectsList {
+  // Local Storage Methods
+  static saveProjectToLocalStorage(name: string, label: Label): SavedProject {
     try {
-      const projectsJson = localStorage.getItem(STORAGE_KEY_PROJECTS);
-      if (!projectsJson) {
-        return { projects: [], lastUpdated: new Date().toISOString() };
+      // Check if we have a projects array already
+      const savedProjectsStr = localStorage.getItem('labelProjects');
+      const savedProjects: SavedProject[] = savedProjectsStr ? JSON.parse(savedProjectsStr) : [];
+      
+      const now = new Date().toISOString();
+      const existingIndex = savedProjects.findIndex(p => p.id === label.id);
+      
+      let updatedProject: SavedProject;
+      
+      if (existingIndex >= 0) {
+        // Update existing project
+        updatedProject = {
+          ...savedProjects[existingIndex],
+          name,
+          label,
+          updatedAt: now
+        };
+        savedProjects[existingIndex] = updatedProject;
+      } else {
+        // Create new project
+        updatedProject = {
+          id: label.id,
+          name,
+          label,
+          createdAt: now,
+          updatedAt: now
+        };
+        savedProjects.push(updatedProject);
       }
       
-      return JSON.parse(projectsJson);
+      // Save back to localStorage
+      localStorage.setItem('labelProjects', JSON.stringify(savedProjects));
+      return updatedProject;
     } catch (error) {
-      console.error('Error retrieving saved projects:', error);
-      return { projects: [], lastUpdated: new Date().toISOString() };
+      console.error('Error saving project to localStorage:', error);
+      throw new Error('Failed to save project');
     }
   }
   
-  /**
-   * Get a specific project by ID
-   * 
-   * @param id Project ID
-   * @returns The project or null if not found
-   */
-  static getProjectById(id: string): SavedProject | null {
-    const projects = this.getProjects();
-    const project = projects.projects.find(p => p.id === id);
-    
-    if (project) {
-      // Update recent projects
-      this.updateRecentProjects(id);
-      return project;
-    }
-    
-    return null;
-  }
-  
-  /**
-   * Delete a project
-   * 
-   * @param id Project ID to delete
-   * @returns true if deletion was successful
-   */
-  static deleteProject(id: string): boolean {
-    const existingProjects = this.getProjects();
-    const projectIndex = existingProjects.projects.findIndex(p => p.id === id);
-    
-    if (projectIndex === -1) {
-      return false;
-    }
-    
-    // Remove the project
-    existingProjects.projects.splice(projectIndex, 1);
-    existingProjects.lastUpdated = new Date().toISOString();
-    
-    // Save updated list
-    localStorage.setItem(STORAGE_KEY_PROJECTS, JSON.stringify(existingProjects));
-    
-    // Remove from recent projects
-    this.removeFromRecentProjects(id);
-    
-    return true;
-  }
-  
-  /**
-   * Get recently accessed projects
-   * 
-   * @param limit Maximum number of projects to return
-   * @returns Array of recent projects
-   */
-  static getRecentProjects(limit: number = 5): SavedProject[] {
+  static getProjectFromLocalStorage(id: string): SavedProject | null {
     try {
-      const recentJson = localStorage.getItem(STORAGE_KEY_RECENT);
-      if (!recentJson) {
-        return [];
-      }
+      const savedProjectsStr = localStorage.getItem('labelProjects');
+      if (!savedProjectsStr) return null;
       
-      const recentIds: string[] = JSON.parse(recentJson);
-      const allProjects = this.getProjects();
-      
-      // Filter and sort projects by recent access
-      const recentProjects = recentIds
-        .map(id => allProjects.projects.find(p => p.id === id))
-        .filter(p => p !== undefined) as SavedProject[];
-      
-      return recentProjects.slice(0, limit);
+      const savedProjects: SavedProject[] = JSON.parse(savedProjectsStr);
+      return savedProjects.find(p => p.id === id) || null;
     } catch (error) {
-      console.error('Error retrieving recent projects:', error);
+      console.error('Error getting project from localStorage:', error);
+      return null;
+    }
+  }
+  
+  static getRecentProjectsFromLocalStorage(limit: number = 10): SavedProject[] {
+    try {
+      const savedProjectsStr = localStorage.getItem('labelProjects');
+      if (!savedProjectsStr) return [];
+      
+      const savedProjects: SavedProject[] = JSON.parse(savedProjectsStr);
+      return savedProjects
+        .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
+        .slice(0, limit);
+    } catch (error) {
+      console.error('Error getting recent projects from localStorage:', error);
       return [];
     }
   }
-  
-  /**
-   * Update the list of recently accessed projects
-   * 
-   * @param id Project ID to add to recent list
-   */
-  private static updateRecentProjects(id: string): void {
+
+  // API Methods - Using the backend
+  static async checkBackendConnection(): Promise<boolean> {
     try {
-      const recentJson = localStorage.getItem(STORAGE_KEY_RECENT);
-      let recentIds: string[] = recentJson ? JSON.parse(recentJson) : [];
+      const response = await fetch(`${API_URL}/health`);
       
-      // Remove the ID if it already exists
-      recentIds = recentIds.filter(existingId => existingId !== id);
-      
-      // Add the ID at the beginning (most recent)
-      recentIds.unshift(id);
-      
-      // Limit to 10 recent projects
-      if (recentIds.length > 10) {
-        recentIds = recentIds.slice(0, 10);
+      if (!response.ok) {
+        throw new Error(`Backend responded with status: ${response.status}`);
       }
       
-      localStorage.setItem(STORAGE_KEY_RECENT, JSON.stringify(recentIds));
+      const data = await response.json();
+      console.log('Backend connection status:', data);
+      return true;
     } catch (error) {
-      console.error('Error updating recent projects:', error);
+      console.error('Error connecting to backend:', error);
+      return false;
     }
   }
   
-  /**
-   * Remove a project from the recent projects list
-   * 
-   * @param id Project ID to remove
-   */
-  private static removeFromRecentProjects(id: string): void {
+  static async getProjects(): Promise<SavedProject[]> {
     try {
-      const recentJson = localStorage.getItem(STORAGE_KEY_RECENT);
-      if (!recentJson) return;
+      const response = await fetch(`${API_URL}/projects`);
       
-      let recentIds: string[] = JSON.parse(recentJson);
+      if (!response.ok) {
+        throw new Error(`Failed to fetch projects: ${response.status}`);
+      }
       
-      // Remove the ID
-      recentIds = recentIds.filter(existingId => existingId !== id);
-      
-      localStorage.setItem(STORAGE_KEY_RECENT, JSON.stringify(recentIds));
+      const projects: SavedProject[] = await response.json();
+      return projects;
     } catch (error) {
-      console.error('Error removing project from recent list:', error);
+      console.error('Error fetching projects from API:', error);
+      // Fall back to local storage
+      return this.getRecentProjectsFromLocalStorage();
     }
   }
   
-  /**
-   * Create a default empty label template
-   * 
-   * @param name Label name
-   * @returns A new empty label
-   */
-  static createEmptyLabel(name: string = 'Nowa etykieta'): Label {
-    const now = new Date();
-    
-    return {
-      id: uuidv4(),
-      name,
-      width: 90,
-      height: 50,
-      elements: [],
-      createdAt: now,
-      updatedAt: now
-    };
+  static async getProjectById(id: string): Promise<SavedProject | null> {
+    try {
+      const response = await fetch(`${API_URL}/projects/${id}`);
+      
+      if (!response.ok) {
+        if (response.status === 404) {
+          return null;
+        }
+        throw new Error(`Failed to fetch project: ${response.status}`);
+      }
+      
+      const project: SavedProject = await response.json();
+      return project;
+    } catch (error) {
+      console.error(`Error fetching project ${id} from API:`, error);
+      // Fall back to local storage
+      return this.getProjectFromLocalStorage(id);
+    }
+  }
+  
+  static async saveProject(name: string, label: Label): Promise<SavedProject> {
+    try {
+      // Check if we're updating an existing project or creating a new one
+      let response;
+      
+      if (label.id) {
+        // Try to get the project from the API
+        const existingProject = await this.getProjectById(label.id);
+        
+        if (existingProject) {
+          // Update existing project
+          response = await fetch(`${API_URL}/projects/${label.id}`, {
+            method: 'PUT',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ name, label }),
+          });
+        } else {
+          // Create new project with existing label ID
+          response = await fetch(`${API_URL}/projects`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ name, label }),
+          });
+        }
+      } else {
+        // Create new project
+        response = await fetch(`${API_URL}/projects`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ name, label }),
+        });
+      }
+      
+      if (!response.ok) {
+        throw new Error(`Failed to save project: ${response.status}`);
+      }
+      
+      const savedProject: SavedProject = await response.json();
+      
+      // Also save to local storage as backup
+      this.saveProjectToLocalStorage(name, label);
+      
+      return savedProject;
+    } catch (error) {
+      console.error('Error saving project to API:', error);
+      // Fall back to local storage only
+      return this.saveProjectToLocalStorage(name, label);
+    }
+  }
+  
+  // Combined methods for seamless experience
+  static getRecentProjects(limit: number = 10): SavedProject[] {
+    // For now, only use localStorage
+    // In a full implementation, you'd merge results from API and localStorage
+    return this.getRecentProjectsFromLocalStorage(limit);
+  }
+  
+  static getProjectById(id: string): SavedProject | null {
+    // For now, only use localStorage
+    // In a full implementation, you'd try API first, then fall back to localStorage
+    return this.getProjectFromLocalStorage(id);
+  }
+  
+  static saveProject(name: string, label: Label): SavedProject {
+    // For now, only use localStorage
+    // In a full implementation, you'd try API first, then fall back to localStorage
+    return this.saveProjectToLocalStorage(name, label);
   }
 }

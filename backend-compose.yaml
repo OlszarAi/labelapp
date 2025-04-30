@@ -1,0 +1,31 @@
+version: '3.8'
+
+services:
+  backend:
+    build:
+      context: ./back
+      dockerfile: Dockerfile
+    environment:
+      NODE_ENV: development
+      # Use environment variables with defaults to connect to the database
+      # DB_HOST can be set to the host machine's IP when running database elsewhere
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@${DB_HOST:-localhost}:5432/${POSTGRES_DB:-labelapp}?schema=public
+      PORT: 3001
+    ports:
+      - 3001:3001
+    volumes:
+      - ./back:/usr/src/app
+      - /usr/src/app/node_modules
+    # External network if connecting to the database from database-compose.yaml
+    networks:
+      - backend-network
+      # Uncomment the following line when connecting to the database from database-compose.yaml
+      # - labelapp-db-network
+
+networks:
+  backend-network:
+    driver: bridge
+  # External network that allows connection to the standalone database
+  # Uncomment the following block when connecting to the database from database-compose.yaml
+  # labelapp-db-network:
+  #   external: true

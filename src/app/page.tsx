@@ -7,6 +7,7 @@ import ThemeToggle from '@/components/ui/ThemeToggle';
 import AnimatedBackground from '@/components/ui/AnimatedBackground';
 import ActionButton from '@/components/ui/ActionButton';
 import { LabelStorageService, SavedProject } from '@/services/labelStorage';
+import BackendTest from '@/components/ui/BackendTest';
 
 export default function Home() {
   // State for scroll-triggered animations

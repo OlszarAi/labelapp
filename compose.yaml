@@ -1,56 +1,77 @@
-# Comments are provided throughout this file to help you get started.
-# If you need more help, visit the Docker Compose reference guide at
-# https://docs.docker.com/go/compose-spec-reference/
+version: '3.8'
 
-# Here the instructions define your application as a service called "server".
-# This service is built from the Dockerfile in the current directory.
-# You can add other services your application may depend on here, such as a
-# database or a cache. For examples, see the Awesome Compose repository:
-# https://github.com/docker/awesome-compose
 services:
-  server:
+  # Frontend - Next.js application
+  frontend:
     build:
-      context: .
+      context: ./front
+      dockerfile: Dockerfile
     environment:
       NODE_ENV: development
+      # URL to the backend API - uses host.docker.internal for standalone mode compatibility
+      NEXT_PUBLIC_API_URL: ${API_URL:-http://backend:3001}
     ports:
       - 3000:3000
-    # Add volume for development to enable hot-reloading
     volumes:
-      - .:/usr/src/app
+      - ./front:/usr/src/app
       - /usr/src/app/node_modules
       - /usr/src/app/.next
+    # Can operate independently
+    depends_on:
+      - backend
+    networks:
+      - app-network
+  
+  # Backend API
+  backend:
+    build:
+      context: ./back
+      dockerfile: Dockerfile
+    environment:
+      NODE_ENV: development
+      DATABASE_URL: postgresql://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@${DB_HOST:-db}:5432/${POSTGRES_DB:-labelapp}?schema=public
+      PORT: 3001
+    ports:
+      - 3001:3001
+    volumes:
+      - ./back:/usr/src/app
+      - /usr/src/app/node_modules
+    # Can operate with external database
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - app-network
+      - db-network
+        
+  # PostgreSQL database
+  db:
+    image: postgres:16
+    restart: always
+    user: postgres
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB:-labelapp}
+      - POSTGRES_USER=${POSTGRES_USER:-postgres}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-postgres}
+    ports:
+      - 5432:5432
+    healthcheck:
+      test: ["CMD", "pg_isready"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - db-network
 
-# The commented out section below is an example of how to define a PostgreSQL
-# database that your application can use. `depends_on` tells Docker Compose to
-# start the database before your application. The `db-data` volume persists the
-# database data between container restarts. The `db-password` secret is used
-# to set the database password. You must create `db/password.txt` and add
-# a password of your choosing to it before running `docker-compose up`.
-#     depends_on:
-#       db:
-#         condition: service_healthy
-#   db:
-#     image: postgres
-#     restart: always
-#     user: postgres
-#     secrets:
-#       - db-password
-#     volumes:
-#       - db-data:/var/lib/postgresql/data
-#     environment:
-#       - POSTGRES_DB=example
-#       - POSTGRES_PASSWORD_FILE=/run/secrets/db-password
-#     expose:
-#       - 5432
-#     healthcheck:
-#       test: [ "CMD", "pg_isready" ]
-#       interval: 10s
-#       timeout: 5s
-#       retries: 5
-# volumes:
-#   db-data:
-# secrets:
-#   db-password:
-#     file: db/password.txt
+networks:
+  app-network:
+    driver: bridge
+  db-network:
+    driver: bridge
+
+volumes:
+  db-data:
+    driver: local
 
