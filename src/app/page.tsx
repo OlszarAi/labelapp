@@ -8,8 +8,15 @@ import AnimatedBackground from '@/components/ui/AnimatedBackground';
 import ActionButton from '@/components/ui/ActionButton';
 import { LabelStorageService, SavedProject } from '@/services/labelStorage';
 import BackendTest from '@/components/ui/BackendTest';
+import AuthModal from '@/components/ui/AuthModal';
+import { useAuth } from '@/lib/hooks/useAuth';
 
 export default function Home() {
+  // State dla modalu autoryzacji
+  const [authModalOpen, setAuthModalOpen] = useState(false);
+  const [authModalMode, setAuthModalMode] = useState<'login' | 'register'>('login');
+  const [userDropdownOpen, setUserDropdownOpen] = useState(false);
+  
   // State for scroll-triggered animations
   const [scrollY, setScrollY] = useState(0);
   const [recentProjects, setRecentProjects] = useState<SavedProject[]>([]);
@@ -17,10 +24,58 @@ export default function Home() {
   const [initialLoad, setInitialLoad] = useState(true);
   const [isDarkTheme, setIsDarkTheme] = useState(false);
   
+  // Referencje dla komponentów
+  const userDropdownRef = useRef<HTMLDivElement>(null);
+  
+  // Auth context
+  const { user, isAuthenticated, logout } = useAuth();
+  
   // Refs for scroll sections
   const featuresRef = useRef<HTMLDivElement>(null);
   const editorDemoRef = useRef<HTMLDivElement>(null);
   const projectsRef = useRef<HTMLDivElement>(null);
+  
+  // Obsługa kliknięcia poza dropdown menu
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (userDropdownRef.current && !userDropdownRef.current.contains(event.target as Node)) {
+        setUserDropdownOpen(false);
+      }
+    };
+    
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
+  
+  // Funkcje obsługujące logowanie
+  const handleOpenLoginModal = () => {
+    setAuthModalMode('login');
+    setAuthModalOpen(true);
+  };
+  
+  const handleOpenRegisterModal = () => {
+    setAuthModalMode('register');
+    setAuthModalOpen(true);
+  };
+  
+  const handleCloseAuthModal = () => {
+    setAuthModalOpen(false);
+  };
+  
+  // Funkcja obsługująca wylogowanie
+  const handleLogout = async () => {
+    const success = await logout();
+    if (success) {
+      setUserDropdownOpen(false);
+    }
+  };
+  
+  // Funkcja przełączająca dropdown menu
+  const toggleUserDropdown = () => {
+    setUserDropdownOpen(prev => !prev);
+  };
   
   // Smooth scroll function
   const scrollToSection = (ref: React.RefObject<HTMLDivElement>) => {
@@ -139,6 +194,71 @@ export default function Home() {
             <Link href="/editor" className="text-gray-700 dark:text-gray-300 hover:text-purple-600 dark:hover:text-purple-400 transition-colors">
               Edytor
             </Link>
+
+            {/* AUTH BUTTONS */}
+            {isAuthenticated ? (
+              <div className="relative" ref={userDropdownRef}>
+                <button 
+                  onClick={toggleUserDropdown}
+                  className="flex items-center gap-2 text-gray-700 dark:text-gray-300 hover:text-purple-600 dark:hover:text-purple-400 transition-colors py-2 px-3 rounded-lg bg-white/40 dark:bg-indigo-950/40 border border-gray-200/50 dark:border-indigo-500/30"
+                >
+                  <span className="font-medium">{user?.username}</span>
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor" className={`w-4 h-4 transition-transform duration-300 ${userDropdownOpen ? 'rotate-180' : ''}`}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
+                  </svg>
+                </button>
+
+                {/* User Dropdown Menu */}
+                {userDropdownOpen && (
+                  <div className="absolute right-0 mt-2 py-2 w-48 bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-100 dark:border-indigo-900/40 z-30 backdrop-blur-sm bg-white/80 dark:bg-gray-800/80">
+                    <Link href="/profile" className="block px-4 py-2.5 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-purple-600 dark:hover:text-purple-400">
+                      <div className="flex items-center gap-3">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M17.982 18.725A7.488 7.488 0 0 0 12 15.75a7.488 7.488 0 0 0-5.982 2.975m11.963 0a9 9 0 1 0-11.963 0m11.963 0A8.966 8.966 0 0 1 12 21a8.966 8.966 0 0 1-5.982-2.275M15 9.75a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
+                        </svg>
+                        Mój profil
+                      </div>
+                    </Link>
+                    <Link href="/projects" className="block px-4 py-2.5 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-purple-600 dark:hover:text-purple-400">
+                      <div className="flex items-center gap-3">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 12.75V12A2.25 2.25 0 0 1 4.5 9.75h15A2.25 2.25 0 0 1 21.75 12v.75m-8.69-6.44-2.12-2.12a1.5 1.5 0 0 0-1.061-.44H4.5A2.25 2.25 0 0 0 2.25 6v12a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9a2.25 2.25 0 0 0-2.25-2.25h-5.379a1.5 1.5 0 0 1-1.06-.44Z" />
+                        </svg>
+                        Moje projekty
+                      </div>
+                    </Link>
+                    <div className="my-1 border-t border-gray-200 dark:border-gray-700"></div>
+                    <button 
+                      onClick={handleLogout}
+                      className="w-full text-left px-4 py-2.5 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-red-600 dark:hover:text-red-400"
+                    >
+                      <div className="flex items-center gap-3">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0 0 13.5 3h-6a2.25 2.25 0 0 0-2.25 2.25v13.5A2.25 2.25 0 0 0 7.5 21h6a2.25 2.25 0 0 0 2.25-2.25V15M12 9l-3 3m0 0 3 3m-3-3h12.75" />
+                        </svg>
+                        Wyloguj
+                      </div>
+                    </button>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={handleOpenLoginModal}
+                  className="text-gray-700 dark:text-gray-300 hover:text-purple-600 dark:hover:text-purple-400 transition-colors"
+                >
+                  Logowanie
+                </button>
+                <button
+                  onClick={handleOpenRegisterModal}
+                  className="py-2 px-4 bg-gradient-to-r from-purple-600 to-blue-500 text-white font-medium rounded-lg hover:shadow-lg transition-shadow dark:from-indigo-500 dark:to-blue-500"
+                >
+                  Rejestracja
+                </button>
+              </div>
+            )}
+
             {/* Theme toggle with tooltip */}
             <div className="relative group">
               <ThemeToggle />
@@ -448,6 +568,13 @@ export default function Home() {
           </div>
         </footer>
       </div>
+
+      {/* Modal autoryzacji */}
+      <AuthModal 
+        isOpen={authModalOpen} 
+        onClose={handleCloseAuthModal} 
+        initialMode={authModalMode}
+      />
     </main>
   );
 }
