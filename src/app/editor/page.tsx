@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from 'react';
+import Link from 'next/link';
 import EditorSidebar from '@/components/labels/EditorSidebar';
 import LabelEditor from '@/components/labels/LabelEditor';
 import { v4 as uuidv4 } from 'uuid';
@@ -15,6 +16,7 @@ interface LabelElement {
   x: number;
   y: number;
   width?: number;
+  height?: number; // Dodana właściwość height
   size?: number;
   value?: string;
   color?: string;
@@ -28,6 +30,15 @@ interface LabelSettings {
   elements: LabelElement[];
 }
 
+interface ProjectLabel {
+  id: string;
+  name: string;
+  width: number;
+  height: number;
+  elements: LabelElement[];
+  updatedAt: string;
+}
+
 export default function EditorPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -35,9 +46,11 @@ export default function EditorPage() {
   // Stan dla wybranego elementu etykiety
   const [selectedElementId, setSelectedElementId] = useState<string | null>(null);
   const [projectId, setProjectId] = useState<string | null>(null);
-  const [projectName, setProjectName] = useState<string>('Nowa etykieta');
+  const [labelId, setLabelId] = useState<string | null>(null); // Dodana zmienna dla identyfikatora etykiety
+  const [projectName, setProjectName] = useState<string>(''); // Nazwa projektu
+  const [labelName, setLabelName] = useState<string>('Nowa etykieta'); // Nazwa etykiety
+  const [projectLabels, setProjectLabels] = useState<ProjectLabel[]>([]);
   const [isSaving, setIsSaving] = useState<boolean>(false);
-  const [saveSuccess, setSaveSuccess] = useState<boolean | null>(null);
   
   // Stany do kontrolowania szerokości sidebara
   const [sidebarWidth, setSidebarWidth] = useState<number>(300); // Domyślna szerokość 300px zamiast 256px (w-64)
@@ -53,26 +66,116 @@ export default function EditorPage() {
     unit: 'mm',
     elements: []
   });
+  
+  // Add auto-save functionality
+  const [autoSaveTimeout, setAutoSaveTimeout] = useState<NodeJS.Timeout | null>(null);
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
 
-  // Load project if projectId is provided in URL
+  // Zmodyfikowana funkcja ładowania projektu i etykiety
   useEffect(() => {
-    const projectIdParam = searchParams.get('projectId');
-    if (projectIdParam) {
-      const savedProject = LabelStorageService.getProjectById(projectIdParam);
-      if (savedProject) {
+    const loadProjectAndLabel = async () => {
+      const projectIdParam = searchParams.get('projectId');
+      const labelIdParam = searchParams.get('labelId');
+      const nameParam = searchParams.get('name');
+      
+      if (!projectIdParam) return;
+
+      try {
+        console.log('[DEBUG] Loading project:', projectIdParam, 'label:', labelIdParam, 'name:', nameParam);
+        
+        // 1. Wczytaj dane projektu
+        const savedProject = await LabelStorageService.getProjectById(projectIdParam);
+        if (!savedProject) {
+          console.error('Projekt nie został znaleziony');
+          return;
+        }
+        
         setProjectId(savedProject.id);
         setProjectName(savedProject.name);
         
-        // Extract label settings from saved project
-        const { width, height, elements } = savedProject.label;
-        setLabelSettings({
-          width,
-          height,
-          unit: 'mm', // Default to mm if not specified in saved project
-          elements: elements as LabelElement[] // Type assertion
-        });
+        // 2. Załaduj etykiety projektu z nowej metody (sortowane, z ominięciem cache)
+        const labels = await LabelStorageService.getSortedLabelsForProject(projectIdParam);
+        
+        if (labels && labels.length > 0) {
+          const formattedLabels = labels.map(label => ({
+            id: label.id,
+            name: label.name,
+            width: label.width,
+            height: label.height,
+            elements: label.elements,
+            updatedAt: label.updatedAt || new Date().toISOString()
+          }));
+          setProjectLabels(formattedLabels);
+          
+          // 3. Jeśli podano labelId, załaduj konkretną etykietę
+          if (labelIdParam) {
+            // Jeśli podano również nazwę w URL, użyj jej tymczasowo
+            if (nameParam) {
+              console.log(`[DEBUG] Używam nazwy z URL: ${nameParam}`);
+              setLabelName(decodeURIComponent(nameParam));
+            }
+            
+            // Pobierz pełne dane etykiety
+            loadSpecificLabel(projectIdParam, labelIdParam);
+          } else if (savedProject.label) {
+            // Jeśli nie podano labelId, a projekt ma główną etykietę, użyj jej
+            setLabelId(savedProject.label.id);
+            setLabelName(savedProject.label.name);
+            setLabelSettings({
+              width: savedProject.label.width,
+              height: savedProject.label.height,
+              unit: 'mm',
+              elements: savedProject.label.elements
+            });
+          }
+        }
+      } catch (error) {
+        console.error('Error loading project or label:', error);
       }
-    }
+    };
+    
+    // Pomocnicza funkcja do ładowania konkretnej etykiety (z ominięciem cache)
+    const loadSpecificLabel = async (projectId: string, labelId: string) => {
+      try {
+        console.log(`[DEBUG] Rozpoczynam ładowanie etykiety - ID: ${labelId}`);
+
+        // Dodatkowe zabezpieczenie - spróbujmy użyć zapisanego ID z localStorage jeśli się zgadza
+        const lastClickedId = localStorage.getItem('lastClickedLabelId');
+        if (lastClickedId && lastClickedId === labelId) {
+          const lastClickedName = localStorage.getItem('lastClickedLabelName');
+          if (lastClickedName) {
+            console.log(`[DEBUG] Używam nazwy z localStorage: ${lastClickedName}`);
+            setLabelName(lastClickedName);
+          }
+        }
+        
+        // Używamy nowej metody getLabelByIdNoCache, która zawsze pomija cache
+        const label = await LabelStorageService.getLabelByIdNoCache(projectId, labelId);
+        
+        if (label) {
+          console.log(`[DEBUG] Pomyślnie załadowano etykietę: ${label.name}, ID: ${label.id}`);
+          
+          // Resetujemy stan wybranego elementu
+          setSelectedElementId(null);
+          
+          // Aktualizujemy stan komponentu
+          setLabelId(label.id);
+          setLabelName(label.name);
+          setLabelSettings({
+            width: label.width,
+            height: label.height,
+            unit: 'mm',
+            elements: label.elements
+          });
+        } else {
+          console.error('[DEBUG] Nie można załadować etykiety o ID:', labelId);
+        }
+      } catch (error) {
+        console.error('[DEBUG] Błąd podczas ładowania etykiety:', error);
+      }
+    };
+    
+    loadProjectAndLabel();
   }, [searchParams]);
 
   // Obsługa przeciągania sidebara
@@ -105,7 +208,7 @@ export default function EditorPage() {
     } else {
       window.removeEventListener('mousemove', handleMouseMove);
       window.removeEventListener('mouseup', handleMouseUp);
-    }
+    };
     
     // Czyszczenie listenerów przy odmontowaniu komponentu
     return () => {
@@ -114,19 +217,55 @@ export default function EditorPage() {
     };
   }, [isDragging]);
 
+  // Auto-save functionality - wyłączony zgodnie z wymaganiem
+  // useEffect(() => {
+  //   if (!projectId) return;
+    
+  //   // Clear any existing timeout
+  //   if (autoSaveTimeout) {
+  //     clearTimeout(autoSaveTimeout);
+  //   }
+    
+  //   const newTimeout = setTimeout(() => {
+  //     setSaveStatus('saving');
+  //     handleSaveLabel()
+  //       .then(() => {
+  //         setSaveStatus('saved');
+  //         // Hide the "saved" status after 3 seconds
+  //         setTimeout(() => {
+  //           setSaveStatus('idle');
+  //         }, 3000);
+  //       })
+  //       .catch((error) => {
+  //         console.error('Error saving label:', error);
+  //         setSaveStatus('error');
+  //       });
+  //   }, 2000);
+    
+  //   setAutoSaveTimeout(newTimeout);
+    
+  //   return () => {
+  //     if (newTimeout) clearTimeout(newTimeout);
+  //   };
+  // }, [labelSettings, projectName, projectId, selectedElementId]);
+
   // Funkcja do eksportu etykiety do PDF
   const handleExportToPDF = async () => {
     try {
-      const pdfUrl = await PdfGenerator.generateSingleLabelPdf({
+      const pdfLabel: any = {
         ...labelSettings,
-        name: projectName,
-        id: projectId || uuidv4()
-      } as Label);
+        name: labelName,
+        id: labelId || uuidv4(),
+        createdAt: new Date(),
+        updatedAt: new Date()
+      };
+      
+      const pdfUrl = await PdfGenerator.generateSingleLabelPdf(pdfLabel);
       
       // Utworzenie tymczasowego linka do pobrania PDF
       const link = document.createElement('a');
       link.href = pdfUrl;
-      link.download = `${projectName.replace(/\s+/g, '_').toLowerCase()}.pdf`;
+      link.download = `${labelName.replace(/\s+/g, '_').toLowerCase()}.pdf`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -136,50 +275,151 @@ export default function EditorPage() {
     }
   };
 
-  // Funkcja do zapisania projektu
-  const handleSaveProject = () => {
-    setIsSaving(true);
-    setSaveSuccess(null);
+  // Funkcja do zapisywania etykiety w projekcie
+  const handleSaveLabel = async () => {
+    if (!projectId) return;
     
     try {
-      // Convert label settings to Label type
-      const now = new Date();
-      const labelToSave: Label = {
-        id: projectId || uuidv4(),
-        name: projectName,
+      setIsSaving(true);
+      
+      // Przygotowanie danych etykiety z pełnym zestawem właściwości
+      const labelData = {
+        name: labelName,
         width: labelSettings.width,
         height: labelSettings.height,
-        elements: labelSettings.elements,
-        createdAt: now,
-        updatedAt: now
+        elements: labelSettings.elements.map(element => ({
+          type: element.type,
+          x: element.x,
+          y: element.y,
+          width: element.width || undefined,
+          height: element.height || element.size || undefined,
+          size: element.size || undefined,
+          value: element.value || undefined,
+          color: element.color || undefined,
+          uuidLength: element.uuidLength || undefined,
+          rotation: 0,
+          properties: {}
+        }))
       };
       
-      // Save using the service
-      const savedProject = LabelStorageService.saveProject(
-        projectName,
-        labelToSave
-      );
+      const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
       
-      // Update projectId if this was a new project
-      if (!projectId) {
-        setProjectId(savedProject.id);
-        // Update URL to include projectId without page refresh
-        const newUrl = `${window.location.pathname}?projectId=${savedProject.id}`;
-        window.history.pushState({ path: newUrl }, '', newUrl);
+      let response;
+      
+      // Jeśli mamy labelId, aktualizujemy konkretną etykietę
+      if (labelId) {
+        // Aktualizacja istniejącej etykiety
+        response = await fetch(`${API_URL}/projects/${projectId}/labels/${labelId}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'Cache-Control': 'no-cache, no-store, must-revalidate'
+          },
+          body: JSON.stringify(labelData),
+          credentials: 'include'
+        });
+      } else {
+        // Utworzenie nowej etykiety w projekcie
+        response = await fetch(`${API_URL}/projects/${projectId}/labels`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Cache-Control': 'no-cache, no-store, must-revalidate'
+          },
+          body: JSON.stringify(labelData),
+          credentials: 'include'
+        });
       }
       
-      setSaveSuccess(true);
+      if (!response.ok) {
+        throw new Error(`Błąd podczas zapisywania: ${response.status}`);
+      }
       
-      // Reset success message after a delay
+      // Odświeżenie danych etykiety
+      const updatedLabel = await response.json();
+      
+      // Ustaw labelId jeśli to była nowa etykieta
+      if (!labelId && updatedLabel.id) {
+        setLabelId(updatedLabel.id);
+        // Zaktualizuj URL, aby zawierał labelId bez przeładowania strony
+        const newUrl = new URL(window.location.href);
+        newUrl.searchParams.set('labelId', updatedLabel.id);
+        window.history.pushState({}, '', newUrl);
+      }
+      
+      // Odśwież listę etykiet w projekcie, używając nowej metody z sortowaniem i bez cache
+      const labels = await LabelStorageService.getSortedLabelsForProject(projectId);
+      if (labels && labels.length > 0) {
+        const formattedLabels = labels.map(label => ({
+          id: label.id,
+          name: label.name,
+          width: label.width,
+          height: label.height,
+          elements: label.elements,
+          updatedAt: label.updatedAt || new Date().toISOString()
+        }));
+        setProjectLabels(formattedLabels);
+      }
+      
+      // Dodatkowo, załaduj świeżo zaktualizowaną etykietę, aby mieć pewność, że edytor wyświetla aktualne dane
+      if (labelId) {
+        const refreshedLabel = await LabelStorageService.getLabelByIdNoCache(projectId, labelId);
+        if (refreshedLabel) {
+          setLabelSettings({
+            width: refreshedLabel.width,
+            height: refreshedLabel.height,
+            unit: 'mm',
+            elements: refreshedLabel.elements
+          });
+          setLabelName(refreshedLabel.name);
+        }
+      }
+      
+      setSaveStatus('saved');
+      
+      // Automatycznie ukryj komunikat po 3 sekundach
       setTimeout(() => {
-        setSaveSuccess(null);
+        if (saveStatus === 'saved') {
+          setSaveStatus('idle');
+        }
       }, 3000);
+      
+      return updatedLabel;
+      
     } catch (error) {
-      console.error('Błąd podczas zapisywania projektu:', error);
-      setSaveSuccess(false);
+      console.error('Błąd podczas zapisywania etykiety:', error);
+      // Pokazujemy błąd tylko w statusie, bez alertu
+      setSaveStatus('error');
+      throw error;
     } finally {
       setIsSaving(false);
     }
+  };
+
+  // Format date for display
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('pl-PL', { 
+      year: 'numeric', 
+      month: 'short', 
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  };
+
+  // Helper function to get primary content from label elements
+  const getPrimaryContent = (elements: LabelElement[]) => {
+    const textElements = elements.filter(el => 
+      el.type === 'text' || el.type === 'product' || el.type === 'company'
+    );
+    
+    if (textElements.length > 0) {
+      // Return the first text element's value
+      return textElements[0].value || 'Bez tekstu';
+    }
+    
+    return 'Bez zawartości';
   };
 
   return (
@@ -244,70 +484,186 @@ export default function EditorPage() {
         className="w-full pt-10 px-4 sm:px-6 md:px-8 lg:ps-8 transition-all"
       >
         <div className="max-w-[85rem] mx-auto">
-          {/* Nagłówek sekcji */}
+          {/* Nagłówek sekcji z nawigacją */}
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-3 mb-6">
-            <div className="flex flex-col">
+            <div className="flex flex-col w-full">
+              {/* Breadcrumb navigation */}
+              {projectId && (
+                <div className="flex items-center text-sm text-gray-500 dark:text-gray-400 mb-2">
+                  <Link href="/projekty" className="hover:text-indigo-600 dark:hover:text-indigo-400">
+                    Projekty
+                  </Link>
+                  <svg className="mx-2 overflow-visible size-2.5 text-gray-400 dark:text-neutral-500" width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M5 1L10.6869 7.16086C10.8637 7.35239 10.8637 7.64761 10.6869 7.83914L5 14" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                  </svg>
+                  <Link href={`/projekty/${projectId}`} className="hover:text-indigo-600 dark:hover:text-indigo-400">
+                    {projectName}
+                  </Link>
+                  <svg className="mx-2 overflow-visible size-2.5 text-gray-400 dark:text-neutral-500" width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M5 1L10.6869 7.16086C10.8637 7.35239 10.8637 7.64761 10.6869 7.83914L5 14" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                  </svg>
+                  <span>Edytor</span>
+                </div>
+              )}
+              
               <div className="flex items-center gap-2">
                 <input
                   type="text"
-                  value={projectName}
-                  onChange={(e) => setProjectName(e.target.value)}
+                  value={labelName}
+                  onChange={(e) => setLabelName(e.target.value)}
                   className="text-2xl font-bold text-gray-800 dark:text-white bg-transparent border-0 border-b border-transparent hover:border-gray-300 focus:border-gray-500 focus:ring-0 dark:hover:border-gray-700 dark:focus:border-gray-600 transition-all"
-                  placeholder="Nazwa projektu"
+                  placeholder="Nazwa etykiety"
                 />
+                
+                {/* Auto-save status indicator */}
+                {projectId && (
+                  <div className="flex items-center ml-2 text-sm">
+                    {saveStatus === 'saving' && (
+                      <span className="flex items-center text-amber-600 dark:text-amber-400">
+                        <span className="animate-spin inline-block size-3 mr-1 border-[2px] border-current border-t-transparent rounded-full"></span>
+                        Zapisywanie...
+                      </span>
+                    )}
+                    {saveStatus === 'saved' && (
+                      <span className="flex items-center text-green-600 dark:text-green-400">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        </svg>
+                        Zapisano
+                      </span>
+                    )}
+                    {saveStatus === 'error' && (
+                      <span className="flex items-center text-red-600 dark:text-red-400">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                        </svg>
+                        Błąd zapisu
+                      </span>
+                    )}
+                  </div>
+                )}
               </div>
-              {saveSuccess === true && (
-                <span className="text-sm text-green-600 dark:text-green-400 mt-1">Projekt został zapisany</span>
-              )}
-              {saveSuccess === false && (
-                <span className="text-sm text-red-600 dark:text-red-400 mt-1">Błąd podczas zapisywania</span>
-              )}
             </div>
             
             <div className="flex gap-2">
-              <button
-                onClick={handleSaveProject}
-                disabled={isSaving}
-                className="py-2 px-4 inline-flex justify-center items-center gap-2 rounded-md border border-transparent font-semibold bg-gray-100 text-gray-800 hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 transition-all text-sm dark:bg-neutral-700 dark:hover:bg-neutral-600 dark:focus:ring-offset-gray-800 disabled:opacity-50"
-              >
-                {isSaving ? (
-                  <>
-                    <svg className="animate-spin h-4 w-4 text-gray-800 dark:text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                    </svg>
-                    <span>Zapisywanie...</span>
-                  </>
-                ) : (
-                  <>
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M17.593 3.322c1.1.128 1.907 1.077 1.907 2.185V21L12 17.25 4.5 21V5.507c0-1.108.806-2.057 1.907-2.185a48.507 48.507 0 0 1 11.186 0Z" />
-                    </svg>
-                    <span>Zapisz projekt</span>
-                  </>
-                )}
-              </button>
+              {projectId && (
+                <button
+                  onClick={handleSaveLabel}
+                  disabled={isSaving}
+                  className="py-2 px-4 inline-flex justify-center items-center gap-2 rounded-md border border-transparent font-semibold bg-green-600 text-white hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-600 focus:ring-offset-2 transition-all text-sm dark:focus:ring-offset-gray-800 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isSaving ? (
+                    <>
+                      <span className="animate-spin inline-block size-4 border-[2px] border-current border-t-transparent rounded-full"></span>
+                      Zapisywanie...
+                    </>
+                  ) : (
+                    <>
+                      <svg className="size-4" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>
+                      Zapisz etykietę
+                    </>
+                  )}
+                </button>
+              )}
+              
+              {/* Przycisk do generowania PDF */}
               <button
                 onClick={handleExportToPDF}
-                className="py-2 px-4 inline-flex justify-center items-center gap-2 rounded-md border border-transparent font-semibold bg-blue-600 text-white hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-600 focus:ring-offset-2 transition-all text-sm dark:focus:ring-offset-gray-800"
+                className="py-2 px-4 inline-flex justify-center items-center gap-2 rounded-md border border-transparent font-semibold bg-indigo-600 text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-600 focus:ring-offset-2 transition-all text-sm dark:focus:ring-offset-gray-800"
               >
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" />
-                </svg>
+                <svg className="size-4" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 9H4.5a2.5 2.5 0 0 0 0 5H6"></path><path d="M18 9h1.5a2.5 2.5 0 0 1 0 5H18"></path><path d="M8 9h8"></path><path d="M8 15h8"></path><path d="M8 4h8"></path><path d="M8 20h8"></path></svg>
                 Eksportuj do PDF
               </button>
             </div>
           </div>
 
-          {/* Edytor etykiet */}
-          <div className="bg-white border border-gray-200 rounded-xl shadow-sm p-4 dark:bg-neutral-800 dark:border-neutral-700">
-            <LabelEditor
-              labelSettings={labelSettings}
-              setLabelSettings={setLabelSettings}
-              selectedElementId={selectedElementId}
-              setSelectedElementId={setSelectedElementId}
-            />
-          </div>
+          {/* Main editor interface */}
+          <LabelEditor 
+            labelSettings={labelSettings}
+            setLabelSettings={setLabelSettings}
+            selectedElementId={selectedElementId}
+            setSelectedElementId={setSelectedElementId}
+          />
+          
+          {/* Lista etykiet z projektu - tylko jeśli jesteśmy w projekcie */}
+          {projectId && projectLabels.length > 0 && (
+            <div className="mt-8">
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Etykiety w tym projekcie</h2>
+                <Link 
+                  href={`/projekty/${projectId}`}
+                  className="text-sm font-medium text-indigo-600 hover:text-indigo-800 dark:text-indigo-400 dark:hover:text-indigo-300"
+                >
+                  Wróć do projektu
+                </Link>
+              </div>
+              
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                {projectLabels.map((labelItem) => (
+                  <div 
+                    key={labelItem.id}
+                    className={`bg-white dark:bg-gray-800 rounded-lg shadow border-2 ${labelItem.id === labelId ? 'border-indigo-500 dark:border-indigo-500' : 'border-gray-200 dark:border-gray-700'} hover:shadow-lg transition-shadow overflow-hidden cursor-pointer`}
+                    onClick={() => {
+                      // Najbardziej radykalne podejście - użyj pełnego przeładowania strony z wymuszeniem braku cache
+                      const timestamp = new Date().getTime();
+                      const url = `/editor?projectId=${projectId}&labelId=${labelItem.id}&nocache=${timestamp}`;
+                      console.log(`[DEBUG] Przekierowuję do: ${url}`);
+                      
+                      // Obejście problemu z pamięcią podręczną - używamy pełnego URL z protokołem
+                      window.location.replace(url);
+                    }}
+                  >
+                    <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/30">
+                      <h3 className="font-medium text-gray-900 dark:text-white truncate" title={labelItem.name}>
+                        {labelItem.name || 'Bez nazwy'}
+                      </h3>
+                    </div>
+                    <div className="p-4">
+                      <div className="aspect-[3/2] border border-dashed border-gray-300 dark:border-gray-600 rounded mb-2 flex items-center justify-center bg-gray-50 dark:bg-gray-900/20 relative overflow-hidden">
+                        {/* Uproszczony podgląd etykiety */}
+                        <div className="text-xs text-center text-gray-500 dark:text-gray-400">
+                          {getPrimaryContent(labelItem.elements)}
+                        </div>
+                      </div>
+                      <div className="flex justify-between items-center text-xs text-gray-500 dark:text-gray-400 mt-2">
+                        <span>{labelItem.width}x{labelItem.height} mm</span>
+                        <span>{formatDate(labelItem.updatedAt)}</span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+                
+                {/* Card to add new label */}
+                <div 
+                  onClick={() => {
+                    // Resetujemy stan i przekierowujemy na URL bez labelId
+                    setLabelId(null);
+                    setLabelName('Nowa etykieta');
+                    setLabelSettings({
+                      width: 90,
+                      height: 50,
+                      unit: 'mm',
+                      elements: []
+                    });
+                    router.push(`/editor?projectId=${projectId}`);
+                  }}
+                  className="bg-white dark:bg-gray-800 rounded-lg shadow border-2 border-dashed border-gray-300 dark:border-gray-600 hover:border-indigo-500 dark:hover:border-indigo-500 transition-colors cursor-pointer overflow-hidden flex items-center justify-center"
+                >
+                  <div className="p-6 text-center">
+                    <div className="h-12 w-12 rounded-full bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center mx-auto mb-4">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-indigo-600 dark:text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                      </svg>
+                    </div>
+                    <h3 className="text-base font-medium text-gray-900 dark:text-white">Nowa etykieta</h3>
+                    <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                      Stwórz nową etykietę w projekcie
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
       {/* End Content */}

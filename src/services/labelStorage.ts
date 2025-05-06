@@ -1,20 +1,22 @@
 /**
  * Label Storage Service
  * 
- * Handles saving and loading label projects to/from localStorage.
- * This is a temporary solution until a proper backend is implemented.
+ * Provides access to label projects from the API.
  */
 
-import { Label, LabelCollection } from '@/lib/types/label.types';
+import { Label as LabelType, LabelCollection } from '@/lib/types/label.types';
 import { v4 as uuidv4 } from 'uuid';
 
 // Type definitions for stored label projects
 export interface SavedProject {
   id: string;
   name: string;
-  label: Label;
+  userId: string;
   createdAt: string;
   updatedAt: string;
+  icon?: string;
+  description?: string;
+  label?: Label; // Dodana właściwość label
 }
 
 export interface Label {
@@ -23,6 +25,7 @@ export interface Label {
   width: number;
   height: number;
   elements: LabelElement[];
+  projectId?: string;
   createdAt?: string;
   updatedAt?: string;
 }
@@ -44,79 +47,6 @@ export interface LabelElement {
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
 
 export class LabelStorageService {
-  // For compatibility with existing code, we'll keep the localStorage methods
-  // and add new API methods to work with the backend
-  
-  // Local Storage Methods
-  static saveProjectToLocalStorage(name: string, label: Label): SavedProject {
-    try {
-      // Check if we have a projects array already
-      const savedProjectsStr = localStorage.getItem('labelProjects');
-      const savedProjects: SavedProject[] = savedProjectsStr ? JSON.parse(savedProjectsStr) : [];
-      
-      const now = new Date().toISOString();
-      const existingIndex = savedProjects.findIndex(p => p.id === label.id);
-      
-      let updatedProject: SavedProject;
-      
-      if (existingIndex >= 0) {
-        // Update existing project
-        updatedProject = {
-          ...savedProjects[existingIndex],
-          name,
-          label,
-          updatedAt: now
-        };
-        savedProjects[existingIndex] = updatedProject;
-      } else {
-        // Create new project
-        updatedProject = {
-          id: label.id,
-          name,
-          label,
-          createdAt: now,
-          updatedAt: now
-        };
-        savedProjects.push(updatedProject);
-      }
-      
-      // Save back to localStorage
-      localStorage.setItem('labelProjects', JSON.stringify(savedProjects));
-      return updatedProject;
-    } catch (error) {
-      console.error('Error saving project to localStorage:', error);
-      throw new Error('Failed to save project');
-    }
-  }
-  
-  static getProjectFromLocalStorage(id: string): SavedProject | null {
-    try {
-      const savedProjectsStr = localStorage.getItem('labelProjects');
-      if (!savedProjectsStr) return null;
-      
-      const savedProjects: SavedProject[] = JSON.parse(savedProjectsStr);
-      return savedProjects.find(p => p.id === id) || null;
-    } catch (error) {
-      console.error('Error getting project from localStorage:', error);
-      return null;
-    }
-  }
-  
-  static getRecentProjectsFromLocalStorage(limit: number = 10): SavedProject[] {
-    try {
-      const savedProjectsStr = localStorage.getItem('labelProjects');
-      if (!savedProjectsStr) return [];
-      
-      const savedProjects: SavedProject[] = JSON.parse(savedProjectsStr);
-      return savedProjects
-        .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
-        .slice(0, limit);
-    } catch (error) {
-      console.error('Error getting recent projects from localStorage:', error);
-      return [];
-    }
-  }
-
   // API Methods - Using the backend
   static async checkBackendConnection(): Promise<boolean> {
     try {
@@ -137,7 +67,9 @@ export class LabelStorageService {
   
   static async getProjects(): Promise<SavedProject[]> {
     try {
-      const response = await fetch(`${API_URL}/projects`);
+      const response = await fetch(`${API_URL}/projects`, {
+        credentials: 'include', // Include cookies for authentication
+      });
       
       if (!response.ok) {
         throw new Error(`Failed to fetch projects: ${response.status}`);
@@ -147,14 +79,15 @@ export class LabelStorageService {
       return projects;
     } catch (error) {
       console.error('Error fetching projects from API:', error);
-      // Fall back to local storage
-      return this.getRecentProjectsFromLocalStorage();
+      return [];
     }
   }
   
   static async getProjectById(id: string): Promise<SavedProject | null> {
     try {
-      const response = await fetch(`${API_URL}/projects/${id}`);
+      const response = await fetch(`${API_URL}/projects/${id}`, {
+        credentials: 'include', // Include cookies for authentication
+      });
       
       if (!response.ok) {
         if (response.status === 404) {
@@ -167,83 +100,166 @@ export class LabelStorageService {
       return project;
     } catch (error) {
       console.error(`Error fetching project ${id} from API:`, error);
-      // Fall back to local storage
-      return this.getProjectFromLocalStorage(id);
+      return null;
     }
   }
   
-  static async saveProject(name: string, label: Label): Promise<SavedProject> {
+  static async createEmptyProject(name: string = "Nowa etykieta"): Promise<SavedProject | null> {
     try {
-      // Check if we're updating an existing project or creating a new one
-      let response;
-      
-      if (label.id) {
-        // Try to get the project from the API
-        const existingProject = await this.getProjectById(label.id);
-        
-        if (existingProject) {
-          // Update existing project
-          response = await fetch(`${API_URL}/projects/${label.id}`, {
-            method: 'PUT',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ name, label }),
-          });
-        } else {
-          // Create new project with existing label ID
-          response = await fetch(`${API_URL}/projects`, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({ name, label }),
-          });
-        }
-      } else {
-        // Create new project
-        response = await fetch(`${API_URL}/projects`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ name, label }),
-        });
-      }
+      const response = await fetch(`${API_URL}/projects/empty`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          name: name,
+          icon: '📋',
+          description: ''
+        }),
+        credentials: 'include'
+      });
       
       if (!response.ok) {
-        throw new Error(`Failed to save project: ${response.status}`);
+        throw new Error(`Failed to create new project: ${response.status}`);
       }
       
-      const savedProject: SavedProject = await response.json();
-      
-      // Also save to local storage as backup
-      this.saveProjectToLocalStorage(name, label);
-      
-      return savedProject;
+      const project: SavedProject = await response.json();
+      return project;
     } catch (error) {
-      console.error('Error saving project to API:', error);
-      // Fall back to local storage only
-      return this.saveProjectToLocalStorage(name, label);
+      console.error('Error creating empty project:', error);
+      return null;
     }
   }
   
-  // Combined methods for seamless experience
-  static getRecentProjects(limit: number = 10): SavedProject[] {
-    // For now, only use localStorage
-    // In a full implementation, you'd merge results from API and localStorage
-    return this.getRecentProjectsFromLocalStorage(limit);
+  static async getLabelsForProject(projectId: string): Promise<Label[]> {
+    try {
+      const response = await fetch(`${API_URL}/projects/${projectId}/labels`, {
+        credentials: 'include',
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Failed to fetch labels for project: ${response.status}`);
+      }
+      
+      const labels: Label[] = await response.json();
+      return labels;
+    } catch (error) {
+      console.error(`Error fetching labels for project ${projectId}:`, error);
+      return [];
+    }
   }
-  
-  static getProjectById(id: string): SavedProject | null {
-    // For now, only use localStorage
-    // In a full implementation, you'd try API first, then fall back to localStorage
-    return this.getProjectFromLocalStorage(id);
+
+  static async getLabelById(projectId: string, labelId: string): Promise<Label | null> {
+    try {
+      const response = await fetch(`${API_URL}/projects/${projectId}/labels/${labelId}`, {
+        credentials: 'include',
+      });
+      
+      if (!response.ok) {
+        if (response.status === 404) {
+          return null;
+        }
+        throw new Error(`Failed to fetch label: ${response.status}`);
+      }
+      
+      const label: Label = await response.json();
+      return label;
+    } catch (error) {
+      console.error(`Error fetching label ${labelId} from project ${projectId}:`, error);
+      return null;
+    }
   }
-  
-  static saveProject(name: string, label: Label): SavedProject {
-    // For now, only use localStorage
-    // In a full implementation, you'd try API first, then fall back to localStorage
-    return this.saveProjectToLocalStorage(name, label);
+
+  static async updateLabel(projectId: string, label: Label): Promise<Label | null> {
+    try {
+      const response = await fetch(`${API_URL}/projects/${projectId}/labels/${label.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(label),
+        credentials: 'include'
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Failed to update label: ${response.status}`);
+      }
+      
+      const updatedLabel: Label = await response.json();
+      return updatedLabel;
+    } catch (error) {
+      console.error(`Error updating label ${label.id}:`, error);
+      return null;
+    }
+  }
+
+  // Nowa metoda, która zawsze omija cache przeglądarki
+  static async getLabelByIdNoCache(projectId: string, labelId: string): Promise<Label | null> {
+    try {
+      console.log(`[DEBUG] Requesting label - projectID: ${projectId}, labelID: ${labelId}`);
+      
+      // Dodajemy timestamp jako parametr zapytania, aby uniknąć cache'owania przez przeglądarkę
+      const timestamp = new Date().getTime();
+      const url = `${API_URL}/projects/${projectId}/labels/${labelId}?_=${timestamp}`;
+      console.log(`[DEBUG] Request URL: ${url}`);
+      
+      const response = await fetch(url, {
+        cache: 'no-store',
+        credentials: 'include',
+        headers: {
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0'
+        },
+      });
+      
+      console.log(`[DEBUG] Response status: ${response.status}`);
+      
+      if (!response.ok) {
+        if (response.status === 404) {
+          return null;
+        }
+        throw new Error(`Failed to fetch label: ${response.status}`);
+      }
+      
+      const label: Label = await response.json();
+      console.log(`[DEBUG] Received label - ID: ${label.id}, Name: ${label.name}`);
+      return label;
+    } catch (error) {
+      console.error(`Error fetching label ${labelId} from project ${projectId}:`, error);
+      return null;
+    }
+  }
+
+  // Nowa metoda, która pobiera etykiety projektu z sortowaniem i bez cache'a
+  static async getSortedLabelsForProject(projectId: string): Promise<Label[]> {
+    try {
+      const timestamp = new Date().getTime();
+      const response = await fetch(`${API_URL}/projects/${projectId}/labels?_=${timestamp}`, {
+        cache: 'no-store',
+        credentials: 'include',
+        headers: {
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0'
+        },
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Failed to fetch labels for project: ${response.status}`);
+      }
+      
+      const labels: Label[] = await response.json();
+      
+      // Sortowanie po dacie utworzenia (od najstarszej do najnowszej)
+      return labels.sort((a, b) => {
+        const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+        const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+        return dateA - dateB;
+      });
+    } catch (error) {
+      console.error(`Error fetching sorted labels for project ${projectId}:`, error);
+      return [];
+    }
   }
 }

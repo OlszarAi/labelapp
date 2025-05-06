@@ -19,7 +19,6 @@ export default function Home() {
   
   // State for scroll-triggered animations
   const [scrollY, setScrollY] = useState(0);
-  const [recentProjects, setRecentProjects] = useState<SavedProject[]>([]);
   const [isClient, setIsClient] = useState(false);
   const [initialLoad, setInitialLoad] = useState(true);
   const [isDarkTheme, setIsDarkTheme] = useState(false);
@@ -33,7 +32,6 @@ export default function Home() {
   // Refs for scroll sections
   const featuresRef = useRef<HTMLDivElement>(null);
   const editorDemoRef = useRef<HTMLDivElement>(null);
-  const projectsRef = useRef<HTMLDivElement>(null);
   
   // Obsługa kliknięcia poza dropdown menu
   useEffect(() => {
@@ -106,13 +104,9 @@ export default function Home() {
       setInitialLoad(false);
     }, 1500);
     
-    // Load recent projects on client side
+    // Check theme
     if (typeof window !== 'undefined') {
       try {
-        const projects = LabelStorageService.getRecentProjects(3);
-        setRecentProjects(projects);
-        
-        // Check theme
         const isDark = document.documentElement.classList.contains('dark');
         setIsDarkTheme(isDark);
         
@@ -135,7 +129,7 @@ export default function Home() {
           observer.disconnect();
         };
       } catch (error) {
-        console.error('Error loading recent projects:', error);
+        console.error('Error with theme observer:', error);
       }
     }
     
@@ -183,14 +177,9 @@ export default function Home() {
             >
               Edytor
             </button>
-            {isClient && recentProjects.length > 0 && (
-              <button 
-                onClick={() => scrollToSection(projectsRef)}
-                className="text-gray-700 dark:text-gray-300 hover:text-purple-600 dark:hover:text-purple-400 transition-colors"
-              >
-                Projekty
-              </button>
-            )}
+            <Link href="/projekty" className="text-gray-700 dark:text-gray-300 hover:text-purple-600 dark:hover:text-purple-400 transition-colors">
+              Projekty
+            </Link>
             <Link href="/editor" className="text-gray-700 dark:text-gray-300 hover:text-purple-600 dark:hover:text-purple-400 transition-colors">
               Edytor
             </Link>
@@ -477,80 +466,6 @@ export default function Home() {
           </div>
         </section>
 
-        {/* Recent Projects Section - Only show if there are recent projects */}
-        {isClient && recentProjects.length > 0 && (
-          <section 
-            ref={projectsRef}
-            className={`w-full py-24 px-4 bg-gradient-to-b from-white/20 via-white/40 to-white/20 dark:from-gray-900/20 dark:via-indigo-950/30 dark:to-gray-900/20 backdrop-blur-sm transition-all duration-700`}
-          >
-            <div className="max-w-5xl mx-auto">
-              <h2 className="text-3xl md:text-4xl font-bold text-center mb-16 text-gray-800 dark:text-white">
-                <span className="relative">
-                  Ostatnie projekty
-                  <span className="absolute -bottom-2 left-1/2 transform -translate-x-1/2 w-24 h-1 bg-gradient-to-r from-teal-500 to-blue-500 dark:from-violet-400 dark:to-indigo-400"></span>
-                </span>
-              </h2>
-              
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                {recentProjects.map((project, index) => (
-                  <Link 
-                    href={`/editor?projectId=${project.id}`} 
-                    key={project.id}
-                    className={`bg-white/70 dark:bg-indigo-950/40 backdrop-blur-md rounded-lg shadow-lg hover:shadow-xl transition-all duration-500 p-5 border border-gray-100/50 dark:border-indigo-600/20 group transform hover:scale-105 ${scrollY > 1100 ? `opacity-100 translate-y-0 delay-${index * 150}` : "opacity-0 translate-y-8"}`}
-                  >
-                    <div className="aspect-[3/2] rounded bg-gray-50/80 dark:bg-indigo-900/50 mb-4 flex items-center justify-center overflow-hidden relative">
-                      {/* Simplified project preview */}
-                      {project.label.elements.length > 0 ? (
-                        <div className="relative w-full h-full p-4 flex items-center justify-center">
-                          {project.label.elements.find(el => el.type === 'qrCode') && (
-                            <div className="absolute bg-gray-200 dark:bg-indigo-700/80 rounded-md w-1/3 h-1/3 flex items-center justify-center">
-                              <svg viewBox="0 0 24 24" className="w-full h-full p-1 stroke-current text-gray-500 dark:text-indigo-200" fill="none">
-                                <rect x="4" y="4" width="16" height="16" rx="2" />
-                                <rect x="7" y="7" width="3" height="3" />
-                                <rect x="14" y="7" width="3" height="3" />
-                                <rect x="7" y="14" width="3" height="3" />
-                                <rect x="14" y="14" width="3" height="3" />
-                              </svg>
-                            </div>
-                          )}
-                          {project.label.elements.some(el => ['uuidText', 'company', 'product'].includes(el.type)) && (
-                            <div className="absolute bg-gray-200 dark:bg-indigo-700/80 h-3 w-2/3 rounded-md"></div>
-                          )}
-                        </div>
-                      ) : (
-                        <span className="text-gray-400 dark:text-indigo-300/50 text-sm">Pusta etykieta</span>
-                      )}
-                      
-                      {/* Hover overlay */}
-                      <div className="absolute inset-0 bg-purple-600/0 group-hover:bg-indigo-600/10 dark:group-hover:bg-indigo-600/20 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
-                        <span className="bg-white/90 dark:bg-indigo-900/90 text-purple-600 dark:text-indigo-400 py-2 px-3 rounded-md text-sm font-medium shadow-md">
-                          Edytuj projekt
-                        </span>
-                      </div>
-                    </div>
-                    
-                    <h3 className="font-semibold text-lg text-gray-800 dark:text-indigo-100 group-hover:text-purple-600 dark:group-hover:text-indigo-300 transition-colors">
-                      {project.name}
-                    </h3>
-                    <p className="text-sm text-gray-500 dark:text-indigo-200/70 mt-1">
-                      {formatDate(project.updatedAt)}
-                    </p>
-                  </Link>
-                ))}
-              </div>
-              
-              <div className="mt-12 text-center">
-                <Link href="/projects" className="inline-flex items-center gap-2 text-purple-600 dark:text-indigo-400 hover:text-purple-700 dark:hover:text-indigo-300 font-medium group">
-                  <span>Zobacz wszystkie projekty</span>
-                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4 group-hover:translate-x-1 transition-transform duration-300">
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
-                  </svg>
-                </Link>
-              </div>
-            </div>
-          </section>
-        )}
-
         {/* Footer with slight blur effect */}
         <footer className="w-full py-10 px-4 bg-white/30 dark:bg-indigo-950/30 backdrop-blur-md border-t border-gray-200/50 dark:border-indigo-500/20">
           <div className="max-w-5xl mx-auto flex flex-col md:flex-row justify-between items-center">
@@ -562,7 +477,7 @@ export default function Home() {
             </div>
             <div className="flex gap-6">
               <Link href="/editor" className="text-gray-600 dark:text-indigo-300 hover:text-purple-600 dark:hover:text-indigo-400 transition-colors">Edytor</Link>
-              <Link href="/projects" className="text-gray-600 dark:text-indigo-300 hover:text-purple-600 dark:hover:text-indigo-400 transition-colors">Projekty</Link>
+              <Link href="/projekty" className="text-gray-600 dark:text-indigo-300 hover:text-purple-600 dark:hover:text-indigo-400 transition-colors">Projekty</Link>
               <Link href="#" className="text-gray-600 dark:text-indigo-300 hover:text-purple-600 dark:hover:text-indigo-400 transition-colors">Pomoc</Link>
             </div>
           </div>
