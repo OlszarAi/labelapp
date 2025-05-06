@@ -95,7 +95,9 @@ export default function LabelEditor({
 
   // Obsługa przewijania i zoomowania kółkiem myszy
   const handleWheel = (e: React.WheelEvent) => {
+    // Zawsze zapobiegaj domyślnemu działaniu przewijania strony
     e.preventDefault();
+    e.stopPropagation();
     
     // Obsługa zoom z klawiszem Ctrl/Cmd
     if (e.ctrlKey || e.metaKey) {
@@ -432,14 +434,19 @@ export default function LabelEditor({
         
       {/* Obszar roboczy - inspirowany interfejsem Figmy */}
       <div 
-        className="relative w-full border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900 overflow-hidden rounded-lg" 
+        className="relative w-full border border-gray-200 dark:border-neutral-700 bg-gray-50 dark:bg-neutral-800 overflow-hidden rounded-lg shadow-sm" 
         style={{ height: '550px' }} // Stała wysokość obszaru roboczego
+        onWheel={(e) => {
+          // Zatrzymaj przewijanie strony nawet jeśli kursor jest nad kontenerem
+          e.stopPropagation();
+          e.preventDefault();
+        }}
       >
         {/* Linijki (rulers) w stylu Figmy */}
         {isRulersVisible && (
           <>
             {/* Linijka pozioma (góra) */}
-            <div className="absolute top-0 left-8 right-0 h-8 bg-white dark:bg-gray-800 border-b border-gray-300 dark:border-gray-700 z-20">
+            <div className="absolute top-0 left-8 right-0 h-8 bg-white dark:bg-neutral-900 border-b border-gray-200 dark:border-neutral-700 z-20">
               <div 
                 className="absolute top-0 h-full" 
                 style={{ 
@@ -452,7 +459,7 @@ export default function LabelEditor({
             </div>
             
             {/* Linijka pionowa (lewa) */}
-            <div className="absolute top-8 left-0 bottom-0 w-8 bg-white dark:bg-gray-800 border-r border-gray-300 dark:border-gray-700 z-20">
+            <div className="absolute top-8 left-0 bottom-0 w-8 bg-white dark:bg-neutral-900 border-r border-gray-200 dark:border-neutral-700 z-20">
               <div 
                 className="absolute left-0 w-full" 
                 style={{ 
@@ -465,7 +472,7 @@ export default function LabelEditor({
             </div>
             
             {/* Róg linijek */}
-            <div className="absolute top-0 left-0 w-8 h-8 bg-white dark:bg-gray-800 border-b border-r border-gray-300 dark:border-gray-700 z-30 flex items-center justify-center">
+            <div className="absolute top-0 left-0 w-8 h-8 bg-white dark:bg-neutral-900 border-b border-r border-gray-200 dark:border-neutral-700 z-30 flex items-center justify-center">
               <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-gray-400 dark:text-gray-500">
                 <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path>
               </svg>
@@ -477,12 +484,17 @@ export default function LabelEditor({
         <div 
           ref={containerRef}
           className={`absolute ${isRulersVisible ? 'top-8 left-8' : 'top-0 left-0'} right-0 bottom-0 overflow-hidden`}
-          onWheel={handleWheel}
+          onWheel={(e) => {
+            // Zatrzymaj propagację wydarzenia scrollowania
+            e.stopPropagation();
+            e.preventDefault();
+            handleWheel(e);
+          }}
           onMouseDown={handlePanStart}
           style={{
             cursor: isPanning ? 'grabbing' : (dragging ? 'move' : 'default'),
-            backgroundColor: 'rgba(229, 231, 235, 0.8)',
-            backgroundImage: 'linear-gradient(45deg, rgba(156, 163, 175, 0.05) 25%, transparent 25%, transparent 50%, rgba(156, 163, 175, 0.05) 50%, rgba(156, 163, 175, 0.05) 75%, transparent 75%, transparent)',
+            backgroundColor: 'rgba(229, 231, 235, 0.6)',
+            backgroundImage: 'linear-gradient(45deg, rgba(156, 163, 175, 0.07) 25%, transparent 25%, transparent 50%, rgba(156, 163, 175, 0.07) 50%, rgba(156, 163, 175, 0.07) 75%, transparent 75%, transparent)',
             backgroundSize: '20px 20px',
           }}
         >

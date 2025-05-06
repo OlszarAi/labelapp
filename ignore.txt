@@ -1,0 +1,25 @@
+New update LabelApp - beta 0.0.11v
+
+new changes.
+-Total data synchronization by server.
+-addition of options to create accounts
+-improved label editor.
+-addition of options to create projects
+and more, previous version in older post
+
+
+TODO:
+- improve the appearance of the login screen
+
+-improving the appearance of the project overview.
+
+-improve the appearance of the project label overview.
+
+-adding new functionality to the projects menu:
+        --searching for projects, filtering projects by data.
+
+-adding new functionalities in the labels menu:
+	--creating templates, advanced search, filtering, 
+	editing several labels at once, creating several labels at once
+ 
+-advanced export of labels to PDF.
