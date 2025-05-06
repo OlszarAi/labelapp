@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter, useParams } from 'next/navigation';
 import { LabelStorageService, SavedProject, Label } from '@/services/labelStorage';
 import { useAuth } from '@/lib/hooks/useAuth';
+import LabelPreview from '@/components/labels/LabelPreview';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
 
@@ -278,41 +279,20 @@ export default function ProjectDetailsPage() {
               <Link key={label.id} href={`/editor?projectId=${projectId}&labelId=${label.id}`}>
                 <div className="bg-white dark:bg-gray-800 overflow-hidden shadow rounded-lg transition-all duration-300 hover:shadow-lg group border border-gray-200/50 dark:border-gray-700/50">
                   <div className="aspect-[3/2] bg-gray-100 dark:bg-gray-900 flex items-center justify-center overflow-hidden relative p-4">
-                    {/* Preview of label elements */}
+                    {/* Faktyczny podgląd etykiety z użyciem LabelPreview */}
                     <div className="w-full h-full flex items-center justify-center">
-                      <div className="border border-dashed border-gray-300 dark:border-gray-600 rounded-md p-4 flex flex-col items-center justify-center w-full h-full relative">
-                        {label.elements.length > 0 ? (
-                          <>
-                            {label.elements.find(el => el.type === 'qrCode') && (
-                              <div className="absolute bg-gray-200 dark:bg-indigo-700/80 rounded-md w-1/3 h-1/3 flex items-center justify-center">
-                                <svg viewBox="0 0 24 24" className="w-full h-full p-1 stroke-current text-gray-500 dark:text-indigo-200" fill="none">
-                                  <rect x="4" y="4" width="16" height="16" rx="2" />
-                                  <rect x="7" y="7" width="3" height="3" />
-                                  <rect x="14" y="7" width="3" height="3" />
-                                  <rect x="7" y="14" width="3" height="3" />
-                                  <rect x="14" y="14" width="3" height="3" />
-                                </svg>
-                              </div>
-                            )}
-                            {label.elements.find(el => el.type === 'barcodeData') && (
-                              <div className="absolute bg-gray-200 dark:bg-indigo-700/80 w-2/3 h-1/5 flex items-center justify-center">
-                                <div className="w-full h-full flex">
-                                  {Array.from({ length: 10 }).map((_, i) => (
-                                    <div key={i} className="h-full w-1 bg-gray-400 dark:bg-gray-600 mx-[1px]" style={{ height: '100%', opacity: Math.random() * 0.5 + 0.5 }}></div>
-                                  ))}
-                                </div>
-                              </div>
-                            )}
-                            {label.elements.some(el => ['text', 'company', 'product'].includes(el.type)) && (
-                              <div className="absolute bg-gray-200 dark:bg-indigo-700/80 h-3 w-2/3 rounded-md"></div>
-                            )}
-                          </>
-                        ) : (
+                      {label.elements.length > 0 ? (
+                        <LabelPreview 
+                          label={label} 
+                          className="shadow-sm transform scale-[0.85] hover:scale-90 transition-transform duration-200"
+                        />
+                      ) : (
+                        <div className="border border-dashed border-gray-300 dark:border-gray-600 rounded-md p-4 flex items-center justify-center w-full h-full">
                           <span className="text-gray-400 dark:text-gray-500 text-center">
-                            Podgląd etykiety
+                            Pusta etykieta
                           </span>
-                        )}
-                      </div>
+                        </div>
+                      )}
                     </div>
                   </div>
                   <div className="px-4 py-5 sm:px-6">
@@ -333,7 +313,7 @@ export default function ProjectDetailsPage() {
                           {label.width}x{label.height} mm
                         </span>
                         <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-300">
-                          {label.elements.length} {label.elements.length === 1 ? 'element' : 'elementy'}
+                          {label.elements.length} {label.elements.length === 1 ? 'element' : label.elements.length > 1 && label.elements.length < 5 ? 'elementy' : 'elementów'}
                         </span>
                       </div>
                     </div>

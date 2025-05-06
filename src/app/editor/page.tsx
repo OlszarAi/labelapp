@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import EditorSidebar from '@/components/labels/EditorSidebar';
 import LabelEditor from '@/components/labels/LabelEditor';
+import LabelPreview from '@/components/labels/LabelPreview';
 import { v4 as uuidv4 } from 'uuid';
 import { PdfGenerator } from '@/lib/utils/pdfGenerator';
 import { Label } from '@/lib/types/label.types';
@@ -619,11 +620,20 @@ export default function EditorPage() {
                       </h3>
                     </div>
                     <div className="p-4">
-                      <div className="aspect-[3/2] border border-dashed border-gray-300 dark:border-gray-600 rounded mb-2 flex items-center justify-center bg-gray-50 dark:bg-gray-900/20 relative overflow-hidden">
-                        {/* Uproszczony podgląd etykiety */}
-                        <div className="text-xs text-center text-gray-500 dark:text-gray-400">
-                          {getPrimaryContent(labelItem.elements)}
-                        </div>
+                      <div className="aspect-[3/2] rounded mb-2 flex items-center justify-center bg-gray-50 dark:bg-gray-900/20 relative overflow-hidden">
+                        {/* Faktyczny podgląd etykiety z użyciem LabelPreview */}
+                        {labelItem.elements.length > 0 ? (
+                          <LabelPreview 
+                            label={labelItem as unknown as Label}
+                            className="shadow-sm transform scale-[0.8] hover:scale-[0.85] transition-transform duration-200"
+                          />
+                        ) : (
+                          <div className="border border-dashed border-gray-300 dark:border-gray-600 rounded w-full h-full flex items-center justify-center">
+                            <div className="text-xs text-center text-gray-500 dark:text-gray-400">
+                              Pusta etykieta
+                            </div>
+                          </div>
+                        )}
                       </div>
                       <div className="flex justify-between items-center text-xs text-gray-500 dark:text-gray-400 mt-2">
                         <span>{labelItem.width}x{labelItem.height} mm</span>
