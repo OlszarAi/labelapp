@@ -23,13 +23,30 @@ interface LabelEditorProps {
   setLabelSettings: (settings: any) => void;
   selectedElementId: string | null;
   setSelectedElementId: (id: string | null) => void;
+  projectLabels?: Array<{
+    id: string; 
+    name: string;
+    width: number;
+    height: number;
+    elements: any[];
+    updatedAt: string;
+  }>;
+  projectId?: string | null;
+  labelId?: string | null;
+  onLabelSelect?: (labelId: string) => void;
+  onCreateNewLabel?: () => void;
 }
 
 export default function LabelEditor({
   labelSettings,
   setLabelSettings,
   selectedElementId,
-  setSelectedElementId
+  setSelectedElementId,
+  projectLabels = [],
+  projectId = null,
+  labelId = null,
+  onLabelSelect = () => {},
+  onCreateNewLabel = () => {}
 }: LabelEditorProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const editorRef = useRef<HTMLDivElement>(null);
@@ -43,6 +60,8 @@ export default function LabelEditor({
   const [isPanning, setIsPanning] = useState<boolean>(false);
   const [panStartPosition, setPanStartPosition] = useState<{ x: number, y: number }>({ x: 0, y: 0 });
   const [viewPosition, setViewPosition] = useState<{ x: number, y: number }>({ x: 0, y: 0 });
+  const [isLabelPanelCollapsed, setIsLabelPanelCollapsed] = useState<boolean>(false);
+  const [isLabelListCollapsed, setIsLabelListCollapsed] = useState<boolean>(true);
   
   // Stałe dla przeliczników mm/cm na piksele
   const MM_TO_PX = 3.7795275591;
@@ -101,6 +120,10 @@ export default function LabelEditor({
     
     // Obsługa zoom z klawiszem Ctrl/Cmd
     if (e.ctrlKey || e.metaKey) {
+      // Zatrzymujemy domyślny zoom całej strony
+      e.preventDefault();
+      e.stopPropagation();
+      
       const delta = e.deltaY * -0.002;
       const newZoom = Math.max(Math.min(zoomLevel + delta * zoomLevel, 10), 0.1);
       
@@ -121,7 +144,7 @@ export default function LabelEditor({
       setZoomLevel(newZoom);
       setViewPosition({ x: newViewPositionX, y: newViewPositionY });
     }
-    // Standardowe przewijanie
+    // Standardowe przewijanie - zawsze przesuwaj obszar roboczy (nie tylko z Shift)
     else {
       setViewPosition(prev => ({
         x: prev.x - e.deltaX,
@@ -346,11 +369,62 @@ export default function LabelEditor({
     }).filter(Boolean);
   };
 
+  // Dodajemy funkcję formatowania daty
+  const formatDate = (dateString: string) => {
+    try {
+      const date = new Date(dateString);
+      return new Intl.DateTimeFormat('pl-PL', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric'
+      }).format(date);
+    } catch (e) {
+      return dateString;
+    }
+  };
+  
+  // Funkcja pomocnicza do obsługi wyboru etykiety
+  const handleLabelSelect = (labelId: string) => {
+    if (typeof onLabelSelect === 'function') {
+      onLabelSelect(labelId);
+    } else {
+      // Fallback - przeładowanie strony z nowym labelId
+      if (projectId) {
+        const timestamp = new Date().getTime();
+        const url = `/editor?projectId=${projectId}&labelId=${labelId}&nocache=${timestamp}`;
+        console.log(`[DEBUG] Przekierowuję do: ${url}`);
+        window.location.replace(url);
+      }
+    }
+  };
+
+  // Funkcja obsługująca tworzenie nowej etykiety
+  const handleCreateNewLabel = () => {
+    if (typeof onCreateNewLabel === 'function') {
+      onCreateNewLabel();
+    } else {
+      // Fallback - przeładowanie strony bez labelId
+      if (projectId) {
+        const url = `/editor?projectId=${projectId}`;
+        window.location.replace(url);
+      }
+    }
+  };
+
   return (
-    <div className="flex flex-col items-center justify-center">
+    <div className="flex flex-col items-center justify-center w-full mx-auto bg-white dark:bg-neutral-900 rounded-xl shadow-lg border border-gray-200 dark:border-neutral-800 p-4 mt-2"
+      // Dodajemy obsługę wheel na najbardziej zewnętrznym kontenerze, aby przechwycić i zatrzymać event Ctrl+scroll
+      onWheel={(e) => {
+        if (e.ctrlKey || e.metaKey) {
+          e.preventDefault();
+          e.stopPropagation();
+          // Nie obsługujemy tu zoomowania - pozwalamy, aby wewnętrzny handler się tym zajął
+        }
+      }}
+    >
       {/* Pasek narzędziowy */}
-      <div className="w-full mb-1">
-        <div className="sticky top-0 z-30 flex justify-between items-center bg-white dark:bg-gray-800 rounded-lg p-2 shadow-sm border border-gray-200 dark:border-gray-700">
+      <div className="w-full mb-2">
+        <div className="sticky top-0 z-30 flex justify-between items-center bg-white dark:bg-neutral-800 rounded-lg p-2 shadow-sm border border-gray-200 dark:border-gray-700">
           <div className="flex gap-2">
             <button
               onClick={() => setSelectedElementId(null)}
@@ -360,6 +434,22 @@ export default function LabelEditor({
                 <path d="M14.082 2.182a.5.5 0 0 1 .103.557L8.528 15.467a.5.5 0 0 1-.917-.007L5.57 10.694.803 8.652a.5.5 0 0 1-.006-.916l12.728-5.657a.5.5 0 0 1 .556.103zM2.25 8.184l3.897 1.67a.5.5 0 0 1 .262.263l1.67 3.897L12.743 3.52z"/>
               </svg>
               <span>Odznacz</span>
+            </button>
+            
+            {/* Przycisk ukrywania/wysuwania panelu etykiety */}
+            <button
+              onClick={() => setIsLabelPanelCollapsed(!isLabelPanelCollapsed)}
+              className="py-1 px-3 inline-flex justify-center items-center gap-2 rounded-md border font-medium bg-white text-gray-700 shadow-sm hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-white focus:ring-blue-600 transition-all text-sm dark:bg-gray-700 dark:hover:bg-gray-600 dark:border-gray-600 dark:text-white dark:hover:text-white dark:focus:ring-offset-gray-800"
+              title={isLabelPanelCollapsed ? "Wysuń panel etykiety" : "Ukryj panel etykiety"}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                {isLabelPanelCollapsed ? (
+                  <path fillRule="evenodd" d="M11.354 1.646a.5.5 0 0 1 0 .708L5.707 8l5.647 5.646a.5.5 0 0 1-.708.708l-6-6a.5.5 0 0 1 0-.708l6-6a.5.5 0 0 1 .708 0z"/>
+                ) : (
+                  <path fillRule="evenodd" d="M4.646 1.646a.5.5 0 0 1 .708 0l6 6a.5.5 0 0 1 0 .708l-6 6a.5.5 0 0 1-.708-.708L10.293 8 4.646 2.354a.5.5 0 0 1 0-.708z"/>
+                )}
+              </svg>
+              <span>{isLabelPanelCollapsed ? "Wysuń panel" : "Ukryj panel"}</span>
             </button>
           </div>
           
@@ -434,12 +524,16 @@ export default function LabelEditor({
         
       {/* Obszar roboczy - inspirowany interfejsem Figmy */}
       <div 
-        className="relative w-full border border-gray-200 dark:border-neutral-700 bg-gray-50 dark:bg-neutral-800 overflow-hidden rounded-lg shadow-sm" 
-        style={{ height: '550px' }} // Stała wysokość obszaru roboczego
+        className="relative w-full border border-gray-200 dark:border-neutral-700 bg-gray-50 dark:bg-neutral-800 overflow-hidden rounded-lg shadow-md" 
+        style={{ height: '70vh', minHeight: '600px' }}
         onWheel={(e) => {
-          // Zatrzymaj przewijanie strony nawet jeśli kursor jest nad kontenerem
-          e.stopPropagation();
+          // Zawsze zatrzymaj przewijanie strony i obsłuż zdarzenie lokalnie
           e.preventDefault();
+          e.stopPropagation();
+          
+          // Obsługa dla Ctrl+scroll (tylko powiększenie/pomniejszenie)
+          // Przekazujemy bezpośrednio do handlera wheel bez dodatkowych sprawdzeń
+          handleWheel(e);
         }}
       >
         {/* Linijki (rulers) w stylu Figmy */}
@@ -485,9 +579,9 @@ export default function LabelEditor({
           ref={containerRef}
           className={`absolute ${isRulersVisible ? 'top-8 left-8' : 'top-0 left-0'} right-0 bottom-0 overflow-hidden`}
           onWheel={(e) => {
-            // Zatrzymaj propagację wydarzenia scrollowania
-            e.stopPropagation();
+            // Zatrzymaj propagację wydarzenia scrollowania i domyślne zachowanie
             e.preventDefault();
+            e.stopPropagation();
             handleWheel(e);
           }}
           onMouseDown={handlePanStart}
@@ -601,7 +695,7 @@ export default function LabelEditor({
                           top: `${posY}px`,
                           zIndex: isSelected ? 20 : 10,
                           padding: '2px 4px',
-                          fontSize: `${element.size * zoomLevel}px`,
+                          fontSize: `${(element.size || 12) * zoomLevel}px`,
                           fontFamily: 'monospace',
                           maxWidth: `${calculatePixelSize(labelSettings.width - element.x, labelSettings.unit) * zoomLevel}px`,
                           whiteSpace: 'nowrap',
@@ -635,7 +729,7 @@ export default function LabelEditor({
                           top: `${posY}px`,
                           zIndex: isSelected ? 20 : 10,
                           padding: '2px 4px',
-                          fontSize: `${element.size * zoomLevel}px`,
+                          fontSize: `${(element.size || 12) * zoomLevel}px`,
                           fontWeight: 'bold',
                           maxWidth: `${calculatePixelSize(labelSettings.width - element.x, labelSettings.unit) * zoomLevel}px`,
                           overflow: 'hidden',
@@ -668,7 +762,7 @@ export default function LabelEditor({
                           top: `${posY}px`,
                           zIndex: isSelected ? 20 : 10,
                           padding: '2px 4px',
-                          fontSize: `${element.size * zoomLevel}px`,
+                          fontSize: `${(element.size || 12) * zoomLevel}px`,
                           maxWidth: `${calculatePixelSize(labelSettings.width - element.x, labelSettings.unit) * zoomLevel}px`,
                           overflow: 'hidden',
                           textOverflow: 'ellipsis',
@@ -717,11 +811,169 @@ export default function LabelEditor({
             </svg>
             {labelSettings.width} × {labelSettings.height} {labelSettings.unit}
           </span>
+          <span className="inline-flex items-center px-2 py-1 rounded-md bg-gray-100 dark:bg-gray-700">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" className="mr-1" viewBox="0 0 16 16">
+              <path d="M8 2.5a.5.5 0 0 1 .5.5v1.5H10a.5.5 0 0 1 0 1H8.5V7.5a.5.5 0 0 1-1 0V5.5H6a.5.5 0 0 1 0-1h1.5V3a.5.5 0 0 1 .5-.5z"/>
+              <path d="M3.5 0a.5.5 0 0 1 .5.5V1h8V.5a.5.5 0 0 1 1 0V1h1a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V3a2 2 0 0 1 2-2h1V.5a.5.5 0 0 1 .5-.5zM1 4v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V4H1z"/>
+            </svg>
+            {labelSettings.elements.length} elementów
+          </span>
+          <span className="inline-flex items-center px-2 py-1 rounded-md bg-gray-100 dark:bg-gray-700">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" className="mr-1" viewBox="0 0 16 16">
+              <path d="M6.5 12a5.5 5.5 0 1 0 0-11 5.5 5.5 0 0 0 0 11zM13 6.5a6.5 6.5 0 1 1-13 0 6.5 6.5 0 0 1 13 0z"/>
+              <path d="M10.344 11.742c.03.04.062.078.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1.007 1.007 0 0 0-.115-.1 6.538 6.538 0 0 1-1.398 1.4z"/>
+            </svg>
+            {Math.round(zoomLevel * 100)}%
+          </span>
         </div>
         
-        <div className="flex items-center gap-2 text-xs">
-          <span>Przesuwanie: przytrzymaj scroll myszy lub Alt+przeciągnij | Zoom: Ctrl+scroll</span>
+        <div className="flex items-center gap-3">
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => handleZoomChange(zoomLevel * 0.8)}
+              className="p-1 w-7 h-7 flex items-center justify-center rounded-md border bg-white text-gray-700 shadow-sm hover:bg-gray-50 dark:bg-gray-700 dark:hover:bg-gray-600 dark:border-gray-600 dark:text-gray-300"
+              disabled={zoomLevel <= 0.1}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 12h-15" />
+              </svg>
+            </button>
+            
+            <button
+              onClick={() => handleZoomChange(zoomLevel * 1.2)}
+              className="p-1 w-7 h-7 flex items-center justify-center rounded-md border bg-white text-gray-700 shadow-sm hover:bg-gray-50 dark:bg-gray-700 dark:hover:bg-gray-600 dark:border-gray-600 dark:text-gray-300"
+              disabled={zoomLevel >= 10}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+              </svg>
+            </button>
+            
+            <button
+              onClick={centerWorkspaceView}
+              className="p-1 w-7 h-7 flex items-center justify-center rounded-md border bg-white text-gray-700 shadow-sm hover:bg-gray-50 dark:bg-gray-700 dark:hover:bg-gray-600 dark:border-gray-600 dark:text-gray-300"
+              title="Dopasuj widok"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
+                <path fillRule="evenodd" d="M5.828 10.172a.5.5 0 0 0-.707 0l-4.096 4.096V11.5a.5.5 0 0 0-1 0v3.975a.5.5 0 0 0 .5.5H4.5a.5.5 0 0 0 0-1H1.732l4.096-4.096a.5.5 0 0 0 0-.707zm4.344 0a.5.5 0 0 1 .707 0l4.096 4.096V11.5a.5.5 0 1 1 1 0v3.975a.5.5 0 0 1-.5.5H11.5a.5.5 0 0 1 0-1h2.768l-4.096-4.096a.5.5 0 0 1 0-.707zm0-4.344a.5.5 0 0 0 .707 0l4.096-4.096V4.5a.5.5 0 1 0 1 0V.525a.5.5 0 0 0-.5-.5H11.5a.5.5 0 0 0 0 1h2.768l-4.096 4.096a.5.5 0 0 0 0 .707zm-4.344 0a.5.5 0 0 1-.707 0L1.025 1.732V4.5a.5.5 0 0 1-1 0V.525a.5.5 0 0 1 .5-.5H4.5a.5.5 0 0 1 0 1H1.732l4.096 4.096a.5.5 0 0 1 0 .707z"/>
+              </svg>
+            </button>
+          </div>
+          
+          <span className="text-xs">Przesuwanie: scroll myszy lub Alt+przeciągnij | Zoom: Ctrl+scroll</span>
         </div>
+      </div>
+      
+      {/* Wysuwany panel z listą etykiet - pojawia się od dołu */}
+      <div 
+        className={`fixed left-0 bottom-0 z-40 transition-transform duration-300 ease-in-out transform ${isLabelListCollapsed ? 'translate-y-full' : 'translate-y-0'}`}
+        style={{ 
+          maxHeight: "40vh", 
+          width: "calc(100% - 300px)", // Odejmujemy szerokość sidebar
+          marginLeft: "300px" // Taka sama szerokość jak sidebar
+        }}
+      >
+        <div className="bg-white dark:bg-neutral-800 shadow-lg border border-gray-200 dark:border-neutral-700 rounded-t-xl p-4 mx-4">
+          {/* Nagłówek z przyciskiem zamknięcia */}
+          <div className="flex justify-between items-center mb-4 sticky top-0 bg-white dark:bg-neutral-800 z-10 pb-2 border-b border-gray-200 dark:border-gray-700">
+            <h3 className="text-lg font-semibold text-gray-800 dark:text-white">Etykiety w projekcie</h3>
+            <button
+              onClick={() => setIsLabelListCollapsed(true)}
+              className="p-1.5 rounded-full text-gray-500 hover:text-gray-700 hover:bg-gray-100 dark:text-gray-400 dark:hover:text-gray-200 dark:hover:bg-gray-700"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                <path d="M7.646 4.646a.5.5 0 0 1 .708 0l6 6a.5.5 0 0 1-.708.708L8 5.707l-5.646 5.647a.5.5 0 0 1-.708-.708l6-6z"/>
+              </svg>
+            </button>
+          </div>
+          
+          {/* Lista etykiet pobierana z kontekstu aplikacji */}
+          <div className="overflow-y-auto" style={{ maxHeight: "calc(40vh - 80px)" }}>
+            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+              {/* Wyświetlamy rzeczywiste etykiety z projektu */}
+              {projectLabels && projectLabels.length > 0 ? (
+                // Mapowanie rzeczywistych etykiet z projektu
+                projectLabels.map((labelItem) => (
+                  <div 
+                    key={labelItem.id}
+                    className={`bg-white dark:bg-gray-800 rounded-lg shadow border-2 ${labelItem.id === labelId ? 'border-indigo-500 dark:border-indigo-500' : 'border-gray-200 dark:border-gray-700'} hover:shadow-lg transition-shadow overflow-hidden cursor-pointer`}
+                    onClick={() => handleLabelSelect(labelItem.id)}
+                  >
+                    <div className="px-3 py-2 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/30">
+                      <h3 className="font-medium text-sm text-gray-900 dark:text-white truncate" title={labelItem.name}>
+                        {labelItem.name || 'Bez nazwy'}
+                      </h3>
+                    </div>
+                    <div className="p-3">
+                      <div className="aspect-[3/2] rounded mb-2 flex items-center justify-center bg-gray-100 dark:bg-gray-900/20 relative overflow-hidden">
+                        {labelItem.elements && labelItem.elements.length > 0 ? (
+                          <div className="flex items-center justify-center w-full h-full">
+                            <div className="text-xs text-center text-indigo-600 dark:text-indigo-400">
+                              {labelItem.elements.length} elementów
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="border border-dashed border-gray-300 dark:border-gray-600 rounded w-full h-full flex items-center justify-center">
+                            <div className="text-xs text-center text-gray-500 dark:text-gray-400">
+                              Pusta etykieta
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex justify-between items-center text-xs text-gray-500 dark:text-gray-400 mt-1">
+                        <span>{labelItem.width}x{labelItem.height} mm</span>
+                        <span>{formatDate(labelItem.updatedAt)}</span>
+                      </div>
+                    </div>
+                  </div>
+                ))
+              ) : projectId ? (
+                // Komunikat gdy nie ma etykiet, ale projekt istnieje
+                <div className="col-span-full text-center py-8 text-gray-500 dark:text-gray-400">
+                  Nie znaleziono żadnych etykiet w tym projekcie.
+                </div>
+              ) : (
+                // Komunikat gdy nie wybrano projektu
+                <div className="col-span-full text-center py-8 text-gray-500 dark:text-gray-400">
+                  Wybierz projekt, aby zobaczyć listę etykiet.
+                </div>
+              )}
+              
+              {/* Karta do dodawania nowej etykiety - zawsze widoczna gdy mamy projectId */}
+              {projectId && (
+                <div 
+                  onClick={handleCreateNewLabel}
+                  className="bg-white dark:bg-gray-800 border-2 border-dashed border-gray-300 dark:border-gray-700 rounded-lg p-3 cursor-pointer hover:border-indigo-500 dark:hover:border-indigo-400 transition-colors flex items-center justify-center"
+                >
+                  <div className="text-center">
+                    <div className="flex items-center justify-center w-10 h-10 mx-auto mb-2 rounded-full bg-indigo-100 dark:bg-indigo-900/30">
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 text-indigo-600 dark:text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                      </svg>
+                    </div>
+                    <span className="text-sm font-medium text-gray-800 dark:text-white">Nowa etykieta</span>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+        
+        {/* Przycisk do wysuwania panelu z etykietami - zawsze widoczny na dole ekranu */}
+        <button 
+          onClick={() => setIsLabelListCollapsed(false)}
+          className={`absolute left-1/2 top-0 transform -translate-x-1/2 -translate-y-full bg-white dark:bg-neutral-800 rounded-t-lg shadow-lg border border-gray-200 dark:border-neutral-700 border-b-0 px-4 py-2 text-sm font-medium text-gray-700 dark:text-gray-300 hover:text-indigo-600 dark:hover:text-indigo-400 z-50 ${isLabelListCollapsed ? 'block' : 'hidden'}`}
+        >
+          <div className="flex items-center gap-2">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+              <path d="M2 2a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V2zm4.5 0v12h3a1.5 1.5 0 0 0 1.5-1.5V2h-4.5zm6 0H14v12a2 2 0 0 1-2 2H8v-1.5h4a1.5 1.5 0 0 0 1.5-1.5V2z"/>
+            </svg>
+            <span>Pokaż etykiety</span>
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+              <path d="M7.646 2.646a.5.5 0 0 1 .708 0l6 6a.5.5 0 0 1-.708.708L8 3.707 2.354 9.354a.5.5 0 1 1-.708-.708l6-6z"/>
+            </svg>
+          </div>
+        </button>
       </div>
     </div>
   );

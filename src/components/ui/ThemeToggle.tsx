@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, memo } from "react";
 
-export default function ThemeToggle() {
+const ThemeToggle = () => {
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
   const [isAnimating, setIsAnimating] = useState(false);
@@ -17,8 +17,8 @@ export default function ThemeToggle() {
     }
   }, []);
 
-  // Function to toggle theme with animation
-  const toggleTheme = () => {
+  // Function to toggle theme with animation - optimized with useCallback
+  const toggleTheme = useCallback(() => {
     if (isAnimating) return;
     
     setIsAnimating(true);
@@ -38,7 +38,7 @@ export default function ThemeToggle() {
     setTimeout(() => {
       setIsAnimating(false);
     }, 800);
-  };
+  }, [isDarkMode, isAnimating]);
 
   // Don't render button until we check preferences
   // to avoid UI flickering
@@ -65,7 +65,7 @@ export default function ThemeToggle() {
         {/* Sun icon */}
         <div
           className={`absolute inset-0 transition-all duration-700 transform ${
-            isDarkMode ? "opacity-100 rotate-0 scale-100" : "opacity-0 rotate-90 scale-50"
+            isDarkMode ? "opacity-0 rotate-90 scale-50" : "opacity-100 rotate-0 scale-100"
           }`}
         >
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-6 h-6">
@@ -76,7 +76,7 @@ export default function ThemeToggle() {
         {/* Moon icon */}
         <div
           className={`absolute inset-0 transition-all duration-700 transform ${
-            isDarkMode ? "opacity-0 -rotate-90 scale-50" : "opacity-100 rotate-0 scale-100"
+            isDarkMode ? "opacity-100 rotate-0 scale-100" : "opacity-0 -rotate-90 scale-50"
           }`}
         >
           <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-6 h-6">
@@ -97,3 +97,6 @@ export default function ThemeToggle() {
     </button>
   );
 }
+
+// Export as a memoized component to prevent unnecessary re-renders
+export default memo(ThemeToggle);

@@ -1,14 +1,21 @@
 "use client";
 
-import AnimatedBackground from "../ui/AnimatedBackground";
+import { memo } from 'react';
 import Link from 'next/link';
 import ThemeToggle from '@/components/ui/ThemeToggle';
+import dynamic from 'next/dynamic';
+
+// Dynamically import heavy components with no SSR requirement
+const AnimatedBackground = dynamic(
+  () => import('@/components/ui/AnimatedBackground'),
+  { ssr: false }
+);
 
 interface MainLayoutProps {
   children: React.ReactNode;
 }
 
-export default function MainLayout({ children }: MainLayoutProps) {
+const MainLayout = ({ children }: MainLayoutProps) => {
   return (
     <div className="min-h-screen flex flex-col">
       <header className="bg-white dark:bg-gray-800 shadow-sm">
@@ -16,32 +23,38 @@ export default function MainLayout({ children }: MainLayoutProps) {
           <div className="flex justify-between h-16">
             <div className="flex">
               <div className="flex-shrink-0 flex items-center">
-                <Link href="/">
+                <Link href="/" className="focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 rounded-md">
                   <span className="text-xl font-bold text-gray-800 dark:text-white">
                     <span className="bg-clip-text text-transparent bg-gradient-to-r from-purple-600 to-blue-500">Label</span>Generator
                   </span>
                 </Link>
               </div>
-              <div className="hidden sm:-my-px sm:ml-6 sm:flex sm:space-x-8">
+              <nav className="hidden sm:-my-px sm:ml-6 sm:flex sm:space-x-8">
                 <Link 
                   href="/"
-                  className="inline-flex items-center px-1 pt-1 border-b-2 border-transparent text-sm font-medium text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                  className="inline-flex items-center px-1 pt-1 border-b-2 border-transparent text-sm font-medium text-gray-500 hover:text-gray-700 hover:border-gray-300 transition-colors"
                 >
                   Home
                 </Link>
                 <Link 
                   href="/editor"
-                  className="inline-flex items-center px-1 pt-1 border-b-2 border-transparent text-sm font-medium text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                  className="inline-flex items-center px-1 pt-1 border-b-2 border-transparent text-sm font-medium text-gray-500 hover:text-gray-700 hover:border-gray-300 transition-colors"
                 >
                   Editor
                 </Link>
                 <Link 
+                  href="/projekty" 
+                  className="inline-flex items-center px-1 pt-1 border-b-2 border-transparent text-sm font-medium text-gray-500 hover:text-gray-700 hover:border-gray-300 transition-colors"
+                >
+                  Projekty
+                </Link>
+                <Link 
                   href="/backend-test" 
-                  className="inline-flex items-center px-1 pt-1 border-b-2 border-transparent text-sm font-medium text-gray-500 hover:text-gray-700 hover:border-gray-300"
+                  className="inline-flex items-center px-1 pt-1 border-b-2 border-transparent text-sm font-medium text-gray-500 hover:text-gray-700 hover:border-gray-300 transition-colors"
                 >
                   Backend Test
                 </Link>
-              </div>
+              </nav>
             </div>
             <div className="flex items-center">
               <ThemeToggle />
@@ -64,3 +77,6 @@ export default function MainLayout({ children }: MainLayoutProps) {
     </div>
   );
 }
+
+// Export as memoized component to prevent unnecessary re-renders
+export default memo(MainLayout);

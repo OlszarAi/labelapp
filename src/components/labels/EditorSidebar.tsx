@@ -449,7 +449,7 @@ export default function EditorSidebar({
                     >
                       <div className="flex justify-between items-center mb-3">
                         <span className="font-medium text-sm text-gray-800 dark:text-white truncate max-w-[200px]">
-                          UUID: {element.value.substring(0, 8)}...
+                          UUID: {element.value?.substring(0, 8) || ''}...
                         </span>
                         <button
                           type="button"

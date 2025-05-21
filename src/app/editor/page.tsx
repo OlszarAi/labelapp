@@ -584,96 +584,36 @@ export default function EditorPage() {
             setLabelSettings={setLabelSettings}
             selectedElementId={selectedElementId}
             setSelectedElementId={setSelectedElementId}
+            projectLabels={projectLabels}
+            projectId={projectId}
+            labelId={labelId}
+            onLabelSelect={(selectedLabelId) => {
+              // Resetujemy stan komponentu i przekierowujemy
+              const timestamp = new Date().getTime();
+              const url = `/editor?projectId=${projectId}&labelId=${selectedLabelId}&nocache=${timestamp}`;
+              console.log(`[DEBUG] Przekierowuję do etykiety: ${selectedLabelId}`);
+              window.location.replace(url);
+            }}
+            onCreateNewLabel={() => {
+              // Resetujemy stan i przekierowujemy na URL bez labelId
+              setLabelId(null);
+              setLabelName('Nowa etykieta');
+              setLabelSettings({
+                width: 90,
+                height: 50,
+                unit: 'mm',
+                elements: []
+              });
+              router.push(`/editor?projectId=${projectId}`);
+            }}
           />
           
           {/* Lista etykiet z projektu - tylko jeśli jesteśmy w projekcie */}
+          {/* Ukrywamy ten sekcję, ponieważ teraz mamy wysuwaną listę etykiet w LabelEditor */}
+          {/*
           {projectId && projectLabels.length > 0 && (
             <div className="mt-8">
-              <div className="flex justify-between items-center mb-4">
-                <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Etykiety w tym projekcie</h2>
-                <Link 
-                  href={`/projekty/${projectId}`}
-                  className="text-sm font-medium text-indigo-600 hover:text-indigo-800 dark:text-indigo-400 dark:hover:text-indigo-300"
-                >
-                  Wróć do projektu
-                </Link>
-              </div>
-              
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                {projectLabels.map((labelItem) => (
-                  <div 
-                    key={labelItem.id}
-                    className={`bg-white dark:bg-gray-800 rounded-lg shadow border-2 ${labelItem.id === labelId ? 'border-indigo-500 dark:border-indigo-500' : 'border-gray-200 dark:border-gray-700'} hover:shadow-lg transition-shadow overflow-hidden cursor-pointer`}
-                    onClick={() => {
-                      // Najbardziej radykalne podejście - użyj pełnego przeładowania strony z wymuszeniem braku cache
-                      const timestamp = new Date().getTime();
-                      const url = `/editor?projectId=${projectId}&labelId=${labelItem.id}&nocache=${timestamp}`;
-                      console.log(`[DEBUG] Przekierowuję do: ${url}`);
-                      
-                      // Obejście problemu z pamięcią podręczną - używamy pełnego URL z protokołem
-                      window.location.replace(url);
-                    }}
-                  >
-                    <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/30">
-                      <h3 className="font-medium text-gray-900 dark:text-white truncate" title={labelItem.name}>
-                        {labelItem.name || 'Bez nazwy'}
-                      </h3>
-                    </div>
-                    <div className="p-4">
-                      <div className="aspect-[3/2] rounded mb-2 flex items-center justify-center bg-gray-50 dark:bg-gray-900/20 relative overflow-hidden">
-                        {/* Faktyczny podgląd etykiety z użyciem LabelPreview */}
-                        {labelItem.elements.length > 0 ? (
-                          <LabelPreview 
-                            label={labelItem as unknown as Label}
-                            className="shadow-sm transform scale-[0.8] hover:scale-[0.85] transition-transform duration-200"
-                          />
-                        ) : (
-                          <div className="border border-dashed border-gray-300 dark:border-gray-600 rounded w-full h-full flex items-center justify-center">
-                            <div className="text-xs text-center text-gray-500 dark:text-gray-400">
-                              Pusta etykieta
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                      <div className="flex justify-between items-center text-xs text-gray-500 dark:text-gray-400 mt-2">
-                        <span>{labelItem.width}x{labelItem.height} mm</span>
-                        <span>{formatDate(labelItem.updatedAt)}</span>
-                      </div>
-                    </div>
-                  </div>
-                ))}
-                
-                {/* Card to add new label */}
-                <div 
-                  onClick={() => {
-                    // Resetujemy stan i przekierowujemy na URL bez labelId
-                    setLabelId(null);
-                    setLabelName('Nowa etykieta');
-                    setLabelSettings({
-                      width: 90,
-                      height: 50,
-                      unit: 'mm',
-                      elements: []
-                    });
-                    router.push(`/editor?projectId=${projectId}`);
-                  }}
-                  className="bg-white dark:bg-gray-800 rounded-lg shadow border-2 border-dashed border-gray-300 dark:border-gray-600 hover:border-indigo-500 dark:hover:border-indigo-500 transition-colors cursor-pointer overflow-hidden flex items-center justify-center"
-                >
-                  <div className="p-6 text-center">
-                    <div className="h-12 w-12 rounded-full bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center mx-auto mb-4">
-                      <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 text-indigo-600 dark:text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-                      </svg>
-                    </div>
-                    <h3 className="text-base font-medium text-gray-900 dark:text-white">Nowa etykieta</h3>
-                    <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                      Stwórz nową etykietę w projekcie
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
+          */}
         </div>
       </div>
       {/* End Content */}

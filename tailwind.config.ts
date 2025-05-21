@@ -6,33 +6,38 @@ const config: Config = {
     "./src/components/**/*.{js,ts,jsx,tsx,mdx}",
     "./src/app/**/*.{js,ts,jsx,tsx,mdx}",
   ],
-  darkMode: "class", // Dodajemy obsługę trybu ciemnego poprzez klasę CSS
+  darkMode: "class", // Enable dark mode with CSS class
   theme: {
     extend: {
       backgroundImage: {
         "gradient-radial": "radial-gradient(var(--tw-gradient-stops))",
-        "gradient-conic":
-          "conic-gradient(from 180deg at 50% 50%, var(--tw-gradient-stops))",
+        "gradient-conic": "conic-gradient(from 180deg at 50% 50%, var(--tw-gradient-stops))",
       },
       colors: {
         background: "var(--background)",
         foreground: "var(--foreground)",
       },
       animation: {
-        "slow-blob": "blob 15s infinite ease",
-        "float": "float 8s ease-in-out infinite",
+        // Performance optimized animations
+        "slow-blob": "blob 15s infinite cubic-bezier(0.4, 0, 0.2, 1)", // Better easing for smoother motion
+        "float": "float 8s cubic-bezier(0.4, 0, 0.2, 1) infinite", // Improved easing
         "pulse-slow": "pulse 4s cubic-bezier(0.4, 0, 0.6, 1) infinite",
         "gradient": "gradient 8s linear infinite",
         "text": "textGradient 3s ease infinite",
-        "fade-in": "fadeIn 1s ease-in forwards",
-        "fade-in-delay": "fadeIn 1s ease-in 0.3s forwards",
-        "fade-in-delay-2": "fadeIn 1s ease-in 0.6s forwards",
+        
+        // Optimized fade animations
+        "fade-in": "fadeIn 0.7s ease-out forwards", // Shorter, more efficient animation
+        "fade-in-delay": "fadeIn 0.7s ease-out 0.3s forwards",
+        "fade-in-delay-2": "fadeIn 0.7s ease-out 0.6s forwards",
+        
+        // Other animations
         "scroll-down": "scrollDown 2s ease-in-out infinite",
         "shooting-star": "shootingStar 6s linear infinite",
         "button-glow": "buttonGlow 2s ease-in-out infinite",
-        "shimmer": "shimmer 3s ease-in-out infinite",
+        "shimmer": "shimmer 2.5s ease-in-out infinite", // Optimized shimmer timing
       },
       keyframes: {
+        // Optimized blob animation with will-change property in mind
         blob: {
           "0%, 100%": {
             transform: "translate(0, 0) scale(1)",
@@ -73,7 +78,7 @@ const config: Config = {
           },
         },
         fadeIn: {
-          "0%": { opacity: "0", transform: "translateY(20px)" },
+          "0%": { opacity: "0", transform: "translateY(15px)" }, // Reduced distance for better performance
           "100%": { opacity: "1", transform: "translateY(0)" },
         },
         scrollDown: {
@@ -85,12 +90,8 @@ const config: Config = {
             transform: "translateX(0) translateY(0) rotate(30deg)",
             opacity: "0" 
           },
-          "10%": { 
-            opacity: "1" 
-          },
-          "70%": { 
-            opacity: "1" 
-          },
+          "10%": { opacity: "1" },
+          "70%": { opacity: "1" },
           "100%": { 
             transform: "translateX(1000px) translateY(300px) rotate(30deg)",
             opacity: "0" 
@@ -114,6 +115,15 @@ const config: Config = {
         '2000': '2000ms',
         '3000': '3000ms',
         '4000': '4000ms',
+      },
+      // Add performance properties
+      willChange: {
+        'auto': 'auto',
+        'scroll': 'scroll-position',
+        'contents': 'contents',
+        'transform': 'transform',
+        'opacity': 'opacity',
+        'opacity-transform': 'opacity, transform',
       },
     },
   },

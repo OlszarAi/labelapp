@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, memo } from 'react';
 
 interface BackendStatus {
   connected: boolean;
@@ -9,43 +9,54 @@ interface BackendStatus {
   error?: string;
 }
 
-export default function BackendTest() {
+const BackendTest = () => {
   const [status, setStatus] = useState<BackendStatus>({
     connected: false,
     message: 'Testing connection to backend...'
   });
   const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    const checkBackendConnection = async () => {
-      try {
-        setIsLoading(true);
-        const response = await fetch('http://localhost:3001/api/health');
-        
-        if (!response.ok) {
-          throw new Error(`Backend responded with status: ${response.status}`);
-        }
-        
-        const data = await response.json();
-        setStatus({
-          connected: true,
-          message: data.message || 'Connected to backend successfully!',
-          timestamp: data.timestamp
-        });
-      } catch (error) {
-        console.error('Error connecting to backend:', error);
-        setStatus({
-          connected: false,
-          message: 'Failed to connect to backend',
-          error: error instanceof Error ? error.message : String(error)
-        });
-      } finally {
-        setIsLoading(false);
+  // Optimize with useCallback to prevent recreation on each render
+  const checkBackendConnection = useCallback(async () => {
+    try {
+      setIsLoading(true);
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 seconds timeout
+      
+      const response = await fetch('http://localhost:3001/api/health', {
+        signal: controller.signal
+      });
+      clearTimeout(timeoutId);
+      
+      if (!response.ok) {
+        throw new Error(`Backend responded with status: ${response.status}`);
       }
-    };
-
-    checkBackendConnection();
+      
+      const data = await response.json();
+      setStatus({
+        connected: true,
+        message: data.message || 'Connected to backend successfully!',
+        timestamp: data.timestamp
+      });
+    } catch (error) {
+      console.error('Error connecting to backend:', error);
+      setStatus({
+        connected: false,
+        message: 'Failed to connect to backend',
+        error: error instanceof Error 
+          ? error.name === 'AbortError' 
+            ? 'Connection timed out' 
+            : error.message 
+          : String(error)
+      });
+    } finally {
+      setIsLoading(false);
+    }
   }, []);
+
+  useEffect(() => {
+    checkBackendConnection();
+  }, [checkBackendConnection]);
 
   return (
     <div className="p-4 mb-4 rounded-lg border border-gray-200 dark:border-gray-700">
@@ -74,13 +85,17 @@ export default function BackendTest() {
           )}
           
           <button 
-            onClick={() => window.location.reload()}
-            className="mt-3 px-4 py-2 rounded bg-blue-500 hover:bg-blue-600 text-white text-sm"
+            onClick={checkBackendConnection}
+            className="mt-3 px-4 py-2 rounded bg-blue-500 hover:bg-blue-600 text-white text-sm disabled:opacity-70"
+            disabled={isLoading}
           >
-            Test Again
+            {isLoading ? 'Testing...' : 'Test Again'}
           </button>
         </div>
       )}
     </div>
   );
 }
+
+// Export as memoized component to prevent unnecessary re-renders
+export default memo(BackendTest);

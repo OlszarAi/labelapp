@@ -46,17 +46,74 @@ export interface LabelElement {
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
 
+// Request cache and request tracking for deduplication
+const requestCache = new Map();
+const pendingRequests = new Map();
+
 export class LabelStorageService {
+  // Helper method for network requests with built-in caching and deduplication
+  private static async fetchWithCache(url: string, options: RequestInit = {}, skipCache = false): Promise<any> {
+    const cacheKey = `${options.method || 'GET'}-${url}-${options.body || ''}`;
+    
+    // Return from cache if available and not skipping cache
+    if (!skipCache && requestCache.has(cacheKey)) {
+      return requestCache.get(cacheKey);
+    }
+    
+    // For deduplication - if there's already a pending request for this exact resource
+    if (pendingRequests.has(cacheKey)) {
+      return pendingRequests.get(cacheKey);
+    }
+    
+    // Create a promise for this request
+    const requestPromise = (async () => {
+      try {
+        const response = await fetch(url, {
+          ...options,
+          credentials: 'include', // Always include cookies for consistent auth
+          headers: {
+            'Content-Type': 'application/json',
+            ...(options.headers || {})
+          }
+        });
+        
+        if (!response.ok) {
+          throw new Error(`Request failed with status: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        
+        // Cache GET requests only, unless explicitly disabled
+        const isGetRequest = !options.method || options.method === 'GET';
+        if (isGetRequest && !skipCache) {
+          requestCache.set(cacheKey, data);
+          
+          // Clear cache after 1 minute for fresh data later
+          setTimeout(() => {
+            requestCache.delete(cacheKey);
+          }, 60000);
+        }
+        
+        return data;
+      } catch (error) {
+        console.error(`Error fetching ${url}:`, error);
+        throw error;
+      } finally {
+        // Clean up pending request when done
+        pendingRequests.delete(cacheKey);
+      }
+    })();
+    
+    // Track the pending request
+    pendingRequests.set(cacheKey, requestPromise);
+    
+    return requestPromise;
+  }
+
   // API Methods - Using the backend
   static async checkBackendConnection(): Promise<boolean> {
     try {
-      const response = await fetch(`${API_URL}/health`);
-      
-      if (!response.ok) {
-        throw new Error(`Backend responded with status: ${response.status}`);
-      }
-      
-      const data = await response.json();
+      const data = await LabelStorageService.fetchWithCache(`${API_URL}/health`, {}, true); // Skip cache for health checks
       console.log('Backend connection status:', data);
       return true;
     } catch (error) {
@@ -67,15 +124,7 @@ export class LabelStorageService {
   
   static async getProjects(): Promise<SavedProject[]> {
     try {
-      const response = await fetch(`${API_URL}/projects`, {
-        credentials: 'include', // Include cookies for authentication
-      });
-      
-      if (!response.ok) {
-        throw new Error(`Failed to fetch projects: ${response.status}`);
-      }
-      
-      const projects: SavedProject[] = await response.json();
+      const projects = await LabelStorageService.fetchWithCache(`${API_URL}/projects`);
       return projects;
     } catch (error) {
       console.error('Error fetching projects from API:', error);
@@ -85,18 +134,7 @@ export class LabelStorageService {
   
   static async getProjectById(id: string): Promise<SavedProject | null> {
     try {
-      const response = await fetch(`${API_URL}/projects/${id}`, {
-        credentials: 'include', // Include cookies for authentication
-      });
-      
-      if (!response.ok) {
-        if (response.status === 404) {
-          return null;
-        }
-        throw new Error(`Failed to fetch project: ${response.status}`);
-      }
-      
-      const project: SavedProject = await response.json();
+      const project = await LabelStorageService.fetchWithCache(`${API_URL}/projects/${id}`);
       return project;
     } catch (error) {
       console.error(`Error fetching project ${id} from API:`, error);
@@ -106,24 +144,18 @@ export class LabelStorageService {
   
   static async createEmptyProject(name: string = "Nowa etykieta"): Promise<SavedProject | null> {
     try {
-      const response = await fetch(`${API_URL}/projects/empty`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
+      const project = await LabelStorageService.fetchWithCache(
+        `${API_URL}/projects/empty`, 
+        {
+          method: 'POST',
+          body: JSON.stringify({
+            name: name,
+            icon: '📋',
+            description: ''
+          })
         },
-        body: JSON.stringify({
-          name: name,
-          icon: '📋',
-          description: ''
-        }),
-        credentials: 'include'
-      });
-      
-      if (!response.ok) {
-        throw new Error(`Failed to create new project: ${response.status}`);
-      }
-      
-      const project: SavedProject = await response.json();
+        true // Skip cache for mutations
+      );
       return project;
     } catch (error) {
       console.error('Error creating empty project:', error);
@@ -133,15 +165,7 @@ export class LabelStorageService {
   
   static async getLabelsForProject(projectId: string): Promise<Label[]> {
     try {
-      const response = await fetch(`${API_URL}/projects/${projectId}/labels`, {
-        credentials: 'include',
-      });
-      
-      if (!response.ok) {
-        throw new Error(`Failed to fetch labels for project: ${response.status}`);
-      }
-      
-      const labels: Label[] = await response.json();
+      const labels = await LabelStorageService.fetchWithCache(`${API_URL}/projects/${projectId}/labels`);
       return labels;
     } catch (error) {
       console.error(`Error fetching labels for project ${projectId}:`, error);
@@ -149,20 +173,25 @@ export class LabelStorageService {
     }
   }
 
+  // New method that automatically sorts by updated date
+  static async getSortedLabelsForProject(projectId: string): Promise<Label[]> {
+    try {
+      const labels = await LabelStorageService.fetchWithCache(`${API_URL}/projects/${projectId}/labels`);
+      // Sort labels by updatedAt date descending (newest first)
+      return labels.sort((a: Label, b: Label) => {
+        const dateA = new Date(a.updatedAt || 0).getTime();
+        const dateB = new Date(b.updatedAt || 0).getTime();
+        return dateB - dateA;
+      });
+    } catch (error) {
+      console.error(`Error fetching sorted labels for project ${projectId}:`, error);
+      return [];
+    }
+  }
+
   static async getLabelById(projectId: string, labelId: string): Promise<Label | null> {
     try {
-      const response = await fetch(`${API_URL}/projects/${projectId}/labels/${labelId}`, {
-        credentials: 'include',
-      });
-      
-      if (!response.ok) {
-        if (response.status === 404) {
-          return null;
-        }
-        throw new Error(`Failed to fetch label: ${response.status}`);
-      }
-      
-      const label: Label = await response.json();
+      const label = await LabelStorageService.fetchWithCache(`${API_URL}/projects/${projectId}/labels/${labelId}`);
       return label;
     } catch (error) {
       console.error(`Error fetching label ${labelId} from project ${projectId}:`, error);
@@ -172,20 +201,19 @@ export class LabelStorageService {
 
   static async updateLabel(projectId: string, label: Label): Promise<Label | null> {
     try {
-      const response = await fetch(`${API_URL}/projects/${projectId}/labels/${label.id}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
+      const updatedLabel = await LabelStorageService.fetchWithCache(
+        `${API_URL}/projects/${projectId}/labels/${label.id}`, 
+        {
+          method: 'PUT',
+          body: JSON.stringify(label)
         },
-        body: JSON.stringify(label),
-        credentials: 'include'
-      });
+        true // Skip cache for mutations
+      );
       
-      if (!response.ok) {
-        throw new Error(`Failed to update label: ${response.status}`);
-      }
+      // Invalidate related cache entries after update
+      requestCache.delete(`GET-${API_URL}/projects/${projectId}/labels`);
+      requestCache.delete(`GET-${API_URL}/projects/${projectId}/labels/${label.id}`);
       
-      const updatedLabel: Label = await response.json();
       return updatedLabel;
     } catch (error) {
       console.error(`Error updating label ${label.id}:`, error);
@@ -193,73 +221,29 @@ export class LabelStorageService {
     }
   }
 
-  // Nowa metoda, która zawsze omija cache przeglądarki
+  // Always bypasses cache to ensure fresh data
   static async getLabelByIdNoCache(projectId: string, labelId: string): Promise<Label | null> {
     try {
-      console.log(`[DEBUG] Requesting label - projectID: ${projectId}, labelID: ${labelId}`);
-      
-      // Dodajemy timestamp jako parametr zapytania, aby uniknąć cache'owania przez przeglądarkę
-      const timestamp = new Date().getTime();
-      const url = `${API_URL}/projects/${projectId}/labels/${labelId}?_=${timestamp}`;
-      console.log(`[DEBUG] Request URL: ${url}`);
-      
-      const response = await fetch(url, {
-        cache: 'no-store',
-        credentials: 'include',
-        headers: {
-          'Cache-Control': 'no-cache, no-store, must-revalidate',
-          'Pragma': 'no-cache',
-          'Expires': '0'
+      const label = await LabelStorageService.fetchWithCache(
+        `${API_URL}/projects/${projectId}/labels/${labelId}`, 
+        {
+          headers: {
+            'Cache-Control': 'no-cache, no-store, must-revalidate',
+            'Pragma': 'no-cache'
+          }
         },
-      });
-      
-      console.log(`[DEBUG] Response status: ${response.status}`);
-      
-      if (!response.ok) {
-        if (response.status === 404) {
-          return null;
-        }
-        throw new Error(`Failed to fetch label: ${response.status}`);
-      }
-      
-      const label: Label = await response.json();
-      console.log(`[DEBUG] Received label - ID: ${label.id}, Name: ${label.name}`);
+        true // Skip cache
+      );
       return label;
     } catch (error) {
-      console.error(`Error fetching label ${labelId} from project ${projectId}:`, error);
+      console.error(`Error fetching label ${labelId} from project ${projectId} (no cache):`, error);
       return null;
     }
   }
 
-  // Nowa metoda, która pobiera etykiety projektu z sortowaniem i bez cache'a
-  static async getSortedLabelsForProject(projectId: string): Promise<Label[]> {
-    try {
-      const timestamp = new Date().getTime();
-      const response = await fetch(`${API_URL}/projects/${projectId}/labels?_=${timestamp}`, {
-        cache: 'no-store',
-        credentials: 'include',
-        headers: {
-          'Cache-Control': 'no-cache, no-store, must-revalidate',
-          'Pragma': 'no-cache',
-          'Expires': '0'
-        },
-      });
-      
-      if (!response.ok) {
-        throw new Error(`Failed to fetch labels for project: ${response.status}`);
-      }
-      
-      const labels: Label[] = await response.json();
-      
-      // Sortowanie po dacie utworzenia (od najstarszej do najnowszej)
-      return labels.sort((a, b) => {
-        const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
-        const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
-        return dateA - dateB;
-      });
-    } catch (error) {
-      console.error(`Error fetching sorted labels for project ${projectId}:`, error);
-      return [];
-    }
+  // Clear all cached data (use when logging out or when needed)
+  static clearCache(): void {
+    requestCache.clear();
+    console.log('LabelStorageService cache cleared');
   }
 }

@@ -1,18 +1,25 @@
 "use client";
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback, memo } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import ThemeToggle from '@/components/ui/ThemeToggle';
-import AnimatedBackground from '@/components/ui/AnimatedBackground';
-import ActionButton from '@/components/ui/ActionButton';
-import { LabelStorageService, SavedProject } from '@/services/labelStorage';
-import BackendTest from '@/components/ui/BackendTest';
-import AuthModal from '@/components/ui/AuthModal';
+import dynamic from 'next/dynamic';
 import { useAuth } from '@/lib/hooks/useAuth';
 
+// Dynamic imports for better code splitting
+const ThemeToggle = dynamic(() => import('@/components/ui/ThemeToggle'), {
+  ssr: false
+});
+const AnimatedBackground = dynamic(() => import('@/components/ui/AnimatedBackground'), {
+  ssr: false
+});
+const ActionButton = dynamic(() => import('@/components/ui/ActionButton'));
+const AuthModal = dynamic(() => import('@/components/ui/AuthModal'), {
+  ssr: false
+});
+
 export default function Home() {
-  // State dla modalu autoryzacji
+  // State for auth modal
   const [authModalOpen, setAuthModalOpen] = useState(false);
   const [authModalMode, setAuthModalMode] = useState<'login' | 'register'>('login');
   const [userDropdownOpen, setUserDropdownOpen] = useState(false);
@@ -23,7 +30,7 @@ export default function Home() {
   const [initialLoad, setInitialLoad] = useState(true);
   const [isDarkTheme, setIsDarkTheme] = useState(false);
   
-  // Referencje dla komponentów
+  // References for components
   const userDropdownRef = useRef<HTMLDivElement>(null);
   
   // Auth context
@@ -33,62 +40,72 @@ export default function Home() {
   const featuresRef = useRef<HTMLDivElement>(null);
   const editorDemoRef = useRef<HTMLDivElement>(null);
   
-  // Obsługa kliknięcia poza dropdown menu
+  // Handle click outside dropdown menu - optimized with useCallback
+  const handleClickOutside = useCallback((event: MouseEvent) => {
+    if (userDropdownRef.current && !userDropdownRef.current.contains(event.target as Node)) {
+      setUserDropdownOpen(false);
+    }
+  }, []);
+  
   useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (userDropdownRef.current && !userDropdownRef.current.contains(event.target as Node)) {
-        setUserDropdownOpen(false);
-      }
-    };
-    
     document.addEventListener('mousedown', handleClickOutside);
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
     };
-  }, []);
+  }, [handleClickOutside]);
   
-  // Funkcje obsługujące logowanie
-  const handleOpenLoginModal = () => {
+  // Login handling functions - optimized with useCallback
+  const handleOpenLoginModal = useCallback(() => {
     setAuthModalMode('login');
     setAuthModalOpen(true);
-  };
+  }, []);
   
-  const handleOpenRegisterModal = () => {
+  const handleOpenRegisterModal = useCallback(() => {
     setAuthModalMode('register');
     setAuthModalOpen(true);
-  };
+  }, []);
   
-  const handleCloseAuthModal = () => {
+  const handleCloseAuthModal = useCallback(() => {
     setAuthModalOpen(false);
-  };
+  }, []);
   
-  // Funkcja obsługująca wylogowanie
-  const handleLogout = async () => {
+  // Logout handler - optimized with useCallback
+  const handleLogout = useCallback(async () => {
     const success = await logout();
     if (success) {
       setUserDropdownOpen(false);
     }
-  };
+  }, [logout]);
   
-  // Funkcja przełączająca dropdown menu
-  const toggleUserDropdown = () => {
+  // User dropdown handler - optimized with useCallback
+  const toggleUserDropdown = useCallback(() => {
     setUserDropdownOpen(prev => !prev);
-  };
+  }, []);
   
-  // Smooth scroll function
-  const scrollToSection = (ref: React.RefObject<HTMLDivElement>) => {
+  // Smooth scroll function - optimized with useCallback
+  const scrollToSection = useCallback((ref: React.RefObject<HTMLDivElement | null>) => {
     if (ref.current) {
       window.scrollTo({
         top: ref.current.offsetTop,
         behavior: 'smooth'
       });
     }
-  };
+  }, []);
   
-  // Update scroll position
+  // Update scroll position with throttling for better performance
   useEffect(() => {
+    let lastScrollY = 0;
+    let ticking = false;
+    
     const handleScroll = () => {
-      setScrollY(window.scrollY);
+      lastScrollY = window.scrollY;
+      if (!ticking) {
+        window.requestAnimationFrame(() => {
+          setScrollY(lastScrollY);
+          ticking = false;
+        });
+        ticking = true;
+      }
     };
     
     window.addEventListener("scroll", handleScroll, { passive: true });
@@ -104,20 +121,21 @@ export default function Home() {
       setInitialLoad(false);
     }, 1500);
     
-    // Check theme
+    // Check theme with a more efficient observer
     if (typeof window !== 'undefined') {
       try {
         const isDark = document.documentElement.classList.contains('dark');
         setIsDarkTheme(isDark);
         
-        // Add theme change listener
+        // Add theme change listener with MutationObserver
         const observer = new MutationObserver((mutations) => {
-          mutations.forEach((mutation) => {
+          for (const mutation of mutations) {
             if (mutation.attributeName === 'class') {
               const isDark = document.documentElement.classList.contains('dark');
               setIsDarkTheme(isDark);
+              break; // Exit loop once we've found what we need
             }
-          });
+          }
         });
         
         observer.observe(document.documentElement, {
@@ -127,6 +145,7 @@ export default function Home() {
         
         return () => {
           observer.disconnect();
+          clearTimeout(timer);
         };
       } catch (error) {
         console.error('Error with theme observer:', error);
@@ -136,15 +155,15 @@ export default function Home() {
     return () => clearTimeout(timer);
   }, []);
 
-  // Format date for display
-  const formatDate = (dateString: string) => {
+  // Format date for display - memoized
+  const formatDate = useCallback((dateString: string) => {
     const date = new Date(dateString);
     return date.toLocaleDateString('pl-PL', { 
       year: 'numeric', 
       month: 'short', 
       day: 'numeric' 
     });
-  };
+  }, []);
 
   // Calculate opacity based on scroll position for parallax effects
   const heroOpacity = Math.max(0, Math.min(1, 1 - scrollY / 500));
@@ -208,7 +227,7 @@ export default function Home() {
                         Mój profil
                       </div>
                     </Link>
-                    <Link href="/projects" className="block px-4 py-2.5 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-purple-600 dark:hover:text-purple-400">
+                    <Link href="/projekty" className="block px-4 py-2.5 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 hover:text-purple-600 dark:hover:text-purple-400">
                       <div className="flex items-center gap-3">
                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-4 h-4">
                           <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 12.75V12A2.25 2.25 0 0 1 4.5 9.75h15A2.25 2.25 0 0 1 21.75 12v.75m-8.69-6.44-2.12-2.12a1.5 1.5 0 0 0-1.061-.44H4.5A2.25 2.25 0 0 0 2.25 6v12a2.25 2.25 0 0 0 2.25 2.25h15A2.25 2.25 0 0 0 21.75 18V9a2.25 2.25 0 0 0-2.25-2.25h-5.379a1.5 1.5 0 0 1-1.06-.44Z" />
@@ -286,7 +305,7 @@ export default function Home() {
                   }
                 />
               </Link>
-              <Link href="/projects" className="w-full sm:w-auto">
+              <Link href="/projekty" className="w-full sm:w-auto">
                 <ActionButton
                   title="Import etykiet"
                   variant="secondary"
@@ -313,7 +332,7 @@ export default function Home() {
           </div>
         </section>
 
-        {/* Features Section with scroll reveal */}
+        {/* Features Section with scroll reveal - Lazily loaded out of initial viewport */}
         <section 
           ref={featuresRef}
           className="w-full py-24 px-4 min-h-screen flex items-center"
@@ -331,7 +350,7 @@ export default function Home() {
               <div className={`feature-card backdrop-blur-md bg-white/60 dark:bg-indigo-950/40 p-8 rounded-xl shadow-lg border border-gray-100/50 dark:border-indigo-500/20 transition-all duration-700 transform hover:scale-105 group ${scrollY > 300 ? "opacity-100 translate-y-0" : "opacity-0 translate-y-12"}`}>
                 <div className="text-purple-500 dark:text-indigo-400 mb-6 flex justify-center">
                   <div className="relative">
-                    <Image src="/file.svg" alt="Intuicyjny edytor" width={72} height={72} className="relative z-10" />
+                    <Image src="/file.svg" alt="Intuicyjny edytor" width={72} height={72} className="relative z-10" priority={false} />
                     <div className="absolute inset-0 bg-purple-100 dark:bg-indigo-500/30 rounded-full blur-xl opacity-70 group-hover:opacity-100 transition-opacity"></div>
                   </div>
                 </div>
@@ -345,7 +364,7 @@ export default function Home() {
               <div className={`feature-card backdrop-blur-md bg-white/60 dark:bg-indigo-950/40 p-8 rounded-xl shadow-lg border border-gray-100/50 dark:border-blue-500/20 transition-all duration-700 transform hover:scale-105 group ${scrollY > 300 ? "opacity-100 translate-y-0 delay-150" : "opacity-0 translate-y-12"}`}>
                 <div className="text-blue-500 dark:text-blue-400 mb-6 flex justify-center">
                   <div className="relative">
-                    <Image src="/window.svg" alt="Szablony" width={72} height={72} className="relative z-10" />
+                    <Image src="/window.svg" alt="Szablony" width={72} height={72} className="relative z-10" priority={false} />
                     <div className="absolute inset-0 bg-blue-100 dark:bg-blue-500/30 rounded-full blur-xl opacity-70 group-hover:opacity-100 transition-opacity"></div>
                   </div>
                 </div>
@@ -359,7 +378,7 @@ export default function Home() {
               <div className={`feature-card backdrop-blur-md bg-white/60 dark:bg-indigo-950/40 p-8 rounded-xl shadow-lg border border-gray-100/50 dark:border-violet-500/20 transition-all duration-700 transform hover:scale-105 group ${scrollY > 300 ? "opacity-100 translate-y-0 delay-300" : "opacity-0 translate-y-12"}`}>
                 <div className="text-teal-500 dark:text-violet-400 mb-6 flex justify-center">
                   <div className="relative">
-                    <Image src="/globe.svg" alt="Eksport" width={72} height={72} className="relative z-10" />
+                    <Image src="/globe.svg" alt="Eksport" width={72} height={72} className="relative z-10" priority={false} />
                     <div className="absolute inset-0 bg-teal-100 dark:bg-violet-500/30 rounded-full blur-xl opacity-70 group-hover:opacity-100 transition-opacity"></div>
                   </div>
                 </div>
@@ -372,7 +391,7 @@ export default function Home() {
           </div>
         </section>
 
-        {/* Editor Preview Section - poprawiona zgodnie z załączoną grafiką */}
+        {/* Editor Preview Section with optimized rendering */}
         <section
           ref={editorDemoRef} 
           className={`w-full py-32 px-4 min-h-screen flex items-center bg-gradient-to-b from-gray-900/0 via-indigo-950/20 to-gray-900/0 backdrop-blur-sm transition-all duration-700 dark:from-gray-900/0 dark:via-indigo-950/40 dark:to-gray-900/0`}
@@ -386,16 +405,16 @@ export default function Home() {
             </h2>
             
             <div className={`relative mx-auto max-w-4xl transition-all duration-1000 ${scrollY > 750 ? "opacity-100 scale-100" : "opacity-0 scale-95"}`}>
-              {/* Mockup edytora w stylu Mac/Chrome */}
-              <div className="w-full rounded-lg overflow-hidden shadow-2xl border border-gray-200/10 dark:border-indigo-500/10">
-                {/* Pasek przeglądarki */}
+              {/* Mockup editor in Mac/Chrome style */}
+              <div className="w-full rounded-lg overflow-hidden shadow-2xl border border-gray-200/10 dark:border-indigo-500/10 will-change-transform">
+                {/* Browser bar - simplified for better performance */}
                 <div className="h-8 bg-gray-800/90 dark:bg-gray-900 rounded-t-lg flex items-center px-2">
                   <div className="w-3 h-3 rounded-full bg-red-400 mr-2"></div>
                   <div className="w-3 h-3 rounded-full bg-yellow-400 mr-2"></div>
                   <div className="w-3 h-3 rounded-full bg-green-400"></div>
                 </div>
                 
-                {/* Interfejs edytora */}
+                {/* Editor interface */}
                 <div className="bg-indigo-950/90 dark:bg-gray-900/95 aspect-video w-full flex items-center justify-center p-6">
                   <div className="flex w-full h-full">
                     {/* Sidebar */}
@@ -415,9 +434,9 @@ export default function Home() {
                     <div className="w-2/3 h-full bg-gray-800/80 dark:bg-gray-900/80 rounded-r-md flex items-center justify-center">
                       <div className="w-4/5 h-4/5 border-2 border-dashed border-blue-400/40 dark:border-blue-500/40 rounded flex items-center justify-center p-4 relative">
                         
-                        {/* Etykieta - mock-up */}
+                        {/* Label mock-up */}
                         <div className="absolute w-4/5 h-3/5 bg-blue-100/20 dark:bg-indigo-900/40 rounded-md flex flex-col p-2">
-                          {/* Paski górne */}
+                          {/* Top bars */}
                           <div className="w-full flex">
                             <div className="w-2/3">
                               <div className="h-3 w-full bg-blue-200/30 dark:bg-indigo-400/30 rounded mb-1.5"></div>
@@ -428,19 +447,19 @@ export default function Home() {
                             </div>
                           </div>
                           
-                          {/* Paski środkowe */}
+                          {/* Middle bars */}
                           <div className="my-auto">
                             <div className="h-2 w-1/2 bg-blue-200/30 dark:bg-indigo-400/30 rounded mb-1.5"></div>
                             <div className="h-2 w-3/4 bg-blue-200/30 dark:bg-indigo-400/30 rounded"></div>
                           </div>
                           
-                          {/* Pasek dolny */}
+                          {/* Bottom bar */}
                           <div className="mt-auto">
                             <div className="h-2 w-full bg-blue-200/30 dark:bg-indigo-400/30 rounded"></div>
                           </div>
                         </div>
                         
-                        {/* Cursor indicator - migająca kropka */}
+                        {/* Cursor indicator - blinking dot */}
                         <div className="absolute bottom-4 right-4 w-1.5 h-1.5 bg-blue-400/80 dark:bg-blue-400/80 rounded-full animate-pulse"></div>
                       </div>
                     </div>
@@ -449,7 +468,7 @@ export default function Home() {
               </div>
             </div>
             
-            {/* Przycisk pod edytorem */}
+            {/* Button below editor */}
             <div className="text-center mt-12">
               <Link href="/editor">
                 <ActionButton 
@@ -484,12 +503,14 @@ export default function Home() {
         </footer>
       </div>
 
-      {/* Modal autoryzacji */}
-      <AuthModal 
-        isOpen={authModalOpen} 
-        onClose={handleCloseAuthModal} 
-        initialMode={authModalMode}
-      />
+      {/* Auth modal */}
+      {authModalOpen && (
+        <AuthModal 
+          isOpen={authModalOpen} 
+          onClose={handleCloseAuthModal} 
+          initialMode={authModalMode}
+        />
+      )}
     </main>
   );
 }
