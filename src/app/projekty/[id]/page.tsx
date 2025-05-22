@@ -1,13 +1,14 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { useRouter, useParams } from 'next/navigation';
 import { LabelStorageService, SavedProject } from '@/services/labelStorage';
 import { Label } from '@/lib/types/label.types';
 import { useAuth } from '@/lib/hooks/useAuth';
 import LabelPreview from '@/components/labels/LabelPreview';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
+import LabelsSortingToolbar from '@/components/ui/LabelsSortingToolbar';
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
 
@@ -21,6 +22,35 @@ export default function ProjectDetailsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const { isAuthenticated } = useAuth();
+  
+  // Sorting state
+  const [sortBy, setSortBy] = useState<string>('updatedAt');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
+
+  // Filter and sort labels
+  const sortedLabels = useMemo(() => {
+    if (!labels || labels.length === 0) return [];
+    
+    return [...labels].sort((a, b) => {
+      // For text fields like 'name'
+      if (sortBy === 'name') {
+        const aValue = (a[sortBy as keyof Label] as string) || '';
+        const bValue = (b[sortBy as keyof Label] as string) || '';
+        const comparison = aValue.localeCompare(bValue);
+        return sortDirection === 'asc' ? comparison : -comparison;
+      }
+      
+      // For date fields like 'createdAt' and 'updatedAt'
+      const aValue = a[sortBy as keyof Label] as string || '';
+      const bValue = b[sortBy as keyof Label] as string || '';
+      
+      // Compare dates
+      const comparison = new Date(aValue).getTime() - new Date(bValue).getTime();
+      
+      // Apply sort direction
+      return sortDirection === 'asc' ? comparison : -comparison;
+    });
+  }, [labels, sortBy, sortDirection]);
 
   // Fetch project details and labels when component mounts
   useEffect(() => {
@@ -137,12 +167,35 @@ export default function ProjectDetailsPage() {
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gray-100 dark:bg-neutral-900 p-4">
-        <div className="flex justify-center items-center h-64">
+        <div className="flex justify-center items-center h-64 flex-col">
           <motion.div 
-            className="rounded-full h-16 w-16 border-t-4 border-b-4 border-indigo-500"
-            animate={{ rotate: 360 }}
-            transition={{ duration: 1.5, repeat: Infinity, ease: "linear" }}
-          />
+            className="rounded-full h-16 w-16 relative"
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 0.5 }}
+          >
+            <motion.div 
+              className="absolute inset-0 rounded-full border-4 border-indigo-500/30 dark:border-indigo-600/30"
+            />
+            <motion.div 
+              className="absolute inset-0 rounded-full border-4 border-transparent border-t-indigo-600 dark:border-t-indigo-400"
+              animate={{ rotate: 360 }}
+              transition={{ duration: 1.2, repeat: Infinity, ease: "linear" }}
+            />
+            <motion.div 
+              className="absolute inset-1 rounded-full border-4 border-transparent border-t-purple-600 dark:border-t-purple-400 opacity-70"
+              animate={{ rotate: -360 }}
+              transition={{ duration: 1.8, repeat: Infinity, ease: "linear" }}
+            />
+          </motion.div>
+          <motion.p 
+            className="mt-4 text-gray-500 dark:text-gray-400 text-sm font-medium"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.5, delay: 0.5 }}
+          >
+            Ładowanie etykiet...
+          </motion.p>
         </div>
       </div>
     );
@@ -151,20 +204,55 @@ export default function ProjectDetailsPage() {
   if (error || !project) {
     return (
       <div className="min-h-screen bg-gray-100 dark:bg-neutral-900 p-4">
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md p-6 max-w-2xl mx-auto">
-          <div className="flex items-center text-red-600 dark:text-red-400 mb-4">
-            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-            </svg>
-            <h2 className="text-xl font-semibold">{error || 'Błąd'}</h2>
-          </div>
-          <Link 
-            href="/projekty"
-            className="inline-block mt-4 px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700 transition-colors"
+        <motion.div 
+          className="bg-white dark:bg-gray-800 rounded-lg shadow-lg border border-gray-200/50 dark:border-gray-700/50 p-8 max-w-2xl mx-auto"
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, ease: "easeOut" }}
+        >
+          <motion.div 
+            className="flex items-center text-red-600 dark:text-red-400 mb-6"
+            initial={{ x: -10, opacity: 0 }}
+            animate={{ x: 0, opacity: 1 }}
+            transition={{ delay: 0.2, duration: 0.5 }}
           >
-            Powrót do listy projektów
-          </Link>
-        </div>
+            <motion.div
+              initial={{ scale: 0.8, rotate: -15 }}
+              animate={{ scale: 1, rotate: 0 }}
+              transition={{ delay: 0.3, type: "spring", stiffness: 200 }}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 mr-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+            </motion.div>
+            <h2 className="text-xl font-semibold">{error || 'Nie udało się wczytać projektu'}</h2>
+          </motion.div>
+          
+          <motion.p
+            className="text-gray-600 dark:text-gray-300 mb-6"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.4, duration: 0.5 }}
+          >
+            Wystąpił problem podczas próby wczytania danych projektu. Możesz spróbować odświeżyć stronę lub wrócić do listy projektów.
+          </motion.p>
+          
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.6, duration: 0.5 }}
+          >
+            <Link 
+              href="/projekty"
+              className="inline-flex items-center px-4 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-md hover:from-indigo-700 hover:to-purple-700 transition-all duration-200 shadow-md hover:shadow-lg"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+              </svg>
+              Powrót do listy projektów
+            </Link>
+          </motion.div>
+        </motion.div>
       </div>
     );
   }
@@ -265,8 +353,8 @@ export default function ProjectDetailsPage() {
           <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Etykiety w projekcie</h2>
           <motion.button
             onClick={handleCreateNewLabel}
-            className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-            whileHover={{ scale: 1.05 }}
+            className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+            whileHover={{ scale: 1.05, boxShadow: "0 4px 12px rgba(79, 70, 229, 0.3)" }}
             whileTap={{ scale: 0.95 }}
           >
             <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -275,6 +363,15 @@ export default function ProjectDetailsPage() {
             Nowa etykieta
           </motion.button>
         </div>
+        
+        {labels.length > 0 && (
+          <LabelsSortingToolbar 
+            sortBy={sortBy}
+            setSortBy={setSortBy}
+            sortDirection={sortDirection}
+            setSortDirection={setSortDirection}
+          />
+        )}
 
         {labels.length === 0 ? (
           <motion.div 
@@ -291,8 +388,8 @@ export default function ProjectDetailsPage() {
             <div className="mt-6">
               <motion.button 
                 onClick={handleCreateNewLabel}
-                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
-                whileHover={{ scale: 1.05 }}
+                className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+                whileHover={{ scale: 1.05, boxShadow: "0 4px 12px rgba(79, 70, 229, 0.3)" }}
                 whileTap={{ scale: 0.95 }}
               >
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -303,114 +400,156 @@ export default function ProjectDetailsPage() {
             </div>
           </motion.div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {labels.map((label, index) => (
-              <motion.div
-                key={label.id}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.3, delay: index * 0.05 }}
-              >
-                <Link href={`/editor?projectId=${projectId}&labelId=${label.id}`}>
-                  <motion.div 
-                    className="bg-white dark:bg-gray-800 overflow-hidden shadow-md rounded-lg transition-all duration-300 hover:shadow-lg border border-gray-200/50 dark:border-gray-700/50 h-full"
-                    whileHover={{ 
-                      y: -5,
-                      boxShadow: "0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)"
-                    }}
-                  >
-                    <div className="bg-gray-100 dark:bg-gray-900 flex items-center justify-center overflow-hidden relative p-6">
-                      <div className="w-full h-[180px] flex items-center justify-center">
-                        {label.elements.length > 0 ? (
-                          <LabelPreview 
-                            label={label} 
-                            fitContainer={true}
-                            showBorder={true}
-                            className="shadow-md transform transition-all duration-300 hover:scale-105"
-                          />
-                        ) : (
-                          <div className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-md p-4 flex items-center justify-center w-full h-full">
-                            <span className="text-gray-400 dark:text-gray-500 text-center font-medium">
-                              Pusta etykieta
-                            </span>
-                          </div>
-                        )}
+          <motion.div 
+            className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
+            layout
+            transition={{ duration: 0.6, type: "spring", stiffness: 120, damping: 20 }}
+          >
+            <AnimatePresence mode="popLayout">
+              {sortedLabels.map((label, index) => (
+                <motion.div
+                  key={label.id}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, scale: 0.9 }}
+                  transition={{ 
+                    duration: 0.4,
+                    delay: index * 0.05,
+                    ease: [0.25, 0.1, 0.25, 1.0] 
+                  }}
+                  layout
+                  layoutId={`label-card-${label.id}`}
+                >
+                  <Link href={`/editor?projectId=${projectId}&labelId=${label.id}`}>
+                    <motion.div 
+                      className="bg-gradient-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-900 overflow-hidden shadow-md rounded-lg transition-all duration-300 hover:shadow-lg border border-gray-200/50 dark:border-gray-700/50 h-full relative group"
+                      whileHover={{ 
+                        y: -7,
+                        boxShadow: "0 15px 30px -5px rgba(0, 0, 0, 0.1), 0 10px 15px -5px rgba(0, 0, 0, 0.04)",
+                        scale: 1.02,
+                        transition: { duration: 0.3, ease: "easeOut" }
+                      }}
+                    >
+                      <motion.div
+                        className="absolute inset-0 bg-gradient-to-r from-indigo-500/5 via-purple-500/5 to-indigo-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-lg pointer-events-none"
+                        whileHover={{ 
+                          opacity: 0.2,
+                          transition: { duration: 0.3 } 
+                        }}
+                      />
+                      <div className="bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center overflow-hidden relative p-6 border-b border-gray-200 dark:border-gray-700"
+                           style={{ backdropFilter: "blur(8px)" }}>
+                        <div className="w-full h-[180px] flex items-center justify-center">
+                          {label.elements.length > 0 ? (
+                            <LabelPreview 
+                              label={label} 
+                              fitContainer={true}
+                              showBorder={true}
+                              isInteractive={true}
+                              className="shadow-md"
+                            />
+                          ) : (
+                            <div className="border-2 border-dashed border-gray-300 dark:border-gray-600 rounded-md p-4 flex items-center justify-center w-full h-full">
+                              <span className="text-gray-400 dark:text-gray-500 text-center font-medium">
+                                Pusta etykieta
+                              </span>
+                            </div>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                    <div className="px-5 py-4">
-                      <div className="flex justify-between items-center mb-2">
-                        <h3 className="text-lg font-semibold text-gray-900 dark:text-white group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors line-clamp-1">
-                          {label.name}
-                        </h3>
-                        <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-300">
-                          {label.width}×{label.height} mm
-                        </span>
-                      </div>
-                      
-                      <div className="text-sm text-gray-600 dark:text-gray-400">
-                        <div className="mb-1 flex justify-between">
-                          <span className="font-medium">Elementy:</span>
-                          <span className="text-indigo-600 dark:text-indigo-400 font-medium">
-                            {label.elements.length} {label.elements.length === 1 ? 'element' : label.elements.length > 1 && label.elements.length < 5 ? 'elementy' : 'elementów'}
+                      <div className="px-5 py-4">
+                        <div className="flex justify-between items-center mb-2">
+                          <h3 className={`text-lg font-semibold ${sortBy === 'name' ? 'text-indigo-600 dark:text-indigo-400' : 'text-gray-900 dark:text-white'} group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors line-clamp-1`}>
+                            {label.name}
+                          </h3>
+                          <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-indigo-100 text-indigo-800 dark:bg-indigo-900 dark:text-indigo-300">
+                            {label.width}×{label.height} mm
                           </span>
                         </div>
                         
-                        {label.createdAt && (
-                          <div className="flex justify-between mb-1">
-                            <span className="font-medium">Utworzono:</span>
-                            <span>{formatDate(label.createdAt)}</span>
+                        <div className="text-sm text-gray-600 dark:text-gray-400">
+                          <div className="mb-1 flex justify-between">
+                            <span className="font-medium">Elementy:</span>
+                            <span className="text-indigo-600 dark:text-indigo-400 font-medium">
+                              {label.elements.length} {label.elements.length === 1 ? 'element' : label.elements.length > 1 && label.elements.length < 5 ? 'elementy' : 'elementów'}
+                            </span>
                           </div>
-                        )}
-                        
-                        {label.updatedAt && (
-                          <div className="flex justify-between mb-1">
-                            <span className="font-medium">Ostatnia edycja:</span>
-                            <span>{formatDateTime(label.updatedAt)}</span>
-                          </div>
-                        )}
-                      </div>
+                          
+                          {label.createdAt && (
+                            <div className="flex justify-between mb-1">
+                              <span className="font-medium">Utworzono:</span>
+                              <span className={sortBy === 'createdAt' ? 'text-indigo-600 dark:text-indigo-400 font-medium' : ''}>
+                                {formatDate(label.createdAt)}
+                              </span>
+                            </div>
+                          )}
+                          
+                          {label.updatedAt && (
+                            <div className="flex justify-between mb-1">
+                              <span className="font-medium">Ostatnia edycja:</span>
+                              <span className={sortBy === 'updatedAt' ? 'text-indigo-600 dark:text-indigo-400 font-medium' : ''}>
+                                {formatDateTime(label.updatedAt)}
+                              </span>
+                            </div>
+                          )}
+                        </div>
 
-                      <div className="mt-2 pt-2 border-t border-gray-200 dark:border-gray-700">
-                        <p className="text-sm text-gray-500 dark:text-gray-400 truncate font-medium">
-                          {getPrimaryContent(label)}
-                        </p>
+                        <div className="mt-2 pt-2 border-t border-gray-200 dark:border-gray-700">
+                          <p className="text-sm text-gray-500 dark:text-gray-400 truncate font-medium">
+                            {getPrimaryContent(label)}
+                          </p>
+                        </div>
                       </div>
-                    </div>
-                  </motion.div>
-                </Link>
-              </motion.div>
-            ))}
+                    </motion.div>
+                  </Link>
+                </motion.div>
+              ))}
+            </AnimatePresence>
             
             {/* Add New Label Card */}
             <motion.div 
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.3, delay: labels.length * 0.05 }}
+              transition={{ 
+                duration: 0.4, 
+                delay: sortedLabels.length * 0.05,
+                ease: [0.25, 0.1, 0.25, 1.0]
+              }}
+              layout
             >
               <motion.div 
                 onClick={handleCreateNewLabel}
-                className="bg-white dark:bg-gray-800 overflow-hidden shadow-md rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-600 hover:border-indigo-500 dark:hover:border-indigo-400 transition-colors cursor-pointer flex items-center justify-center h-full"
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
+                className="bg-gradient-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-900 overflow-hidden shadow-md rounded-lg border-2 border-dashed border-gray-300 dark:border-gray-600 hover:border-indigo-500 dark:hover:border-indigo-400 transition-all duration-300 cursor-pointer flex items-center justify-center h-full"
+                whileHover={{ 
+                  scale: 1.03, 
+                  boxShadow: "0 15px 30px -5px rgba(0, 0, 0, 0.1), 0 10px 15px -5px rgba(0, 0, 0, 0.04)",
+                  borderColor: "rgba(99, 102, 241, 0.6)",
+                  y: -7
+                }}
+                whileTap={{ scale: 0.97 }}
               >
                 <div className="p-8 text-center">
                   <motion.div 
-                    className="h-14 w-14 rounded-full bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center mx-auto mb-4"
-                    whileHover={{ rotate: 90 }}
-                    transition={{ duration: 0.3 }}
+                    className="h-16 w-16 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center mx-auto mb-6 shadow-lg"
+                    whileHover={{ 
+                      rotate: 90,
+                      scale: 1.1,
+                      boxShadow: "0 0 15px rgba(99, 102, 241, 0.5)"
+                    }}
+                    transition={{ type: "spring", stiffness: 300, damping: 20 }}
                   >
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-7 w-7 text-indigo-600 dark:text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
                     </svg>
                   </motion.div>
-                  <h3 className="text-base font-medium text-gray-900 dark:text-white">Dodaj nową etykietę</h3>
-                  <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Dodaj nową etykietę</h3>
+                  <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
                     Stwórz nową etykietę w projekcie
                   </p>
                 </div>
               </motion.div>
             </motion.div>
-          </div>
+          </motion.div>
         )}
       </div>
     </div>

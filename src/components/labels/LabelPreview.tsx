@@ -1,22 +1,28 @@
 "use client";
 
-import React from 'react';
+import React, { useState } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
 import { Label } from '@/lib/types/label.types';
+import { motion } from 'framer-motion';
 
 interface LabelPreviewProps {
   label: Label;
   className?: string;
   fitContainer?: boolean;
   showBorder?: boolean;
+  isInteractive?: boolean;
 }
 
 export default function LabelPreview({ 
   label, 
   className = "", 
   fitContainer = false,
-  showBorder = true
+  showBorder = true,
+  isInteractive = false
 }: LabelPreviewProps) {
+  // State for hover effect
+  const [isHovered, setIsHovered] = useState(false);
+  
   // Stałe do konwersji mm na piksele
   const MM_TO_PX_FACTOR = 2; // Niższy współczynnik konwersji dla podglądu (zoptymalizowane)
   
@@ -48,8 +54,10 @@ export default function LabelPreview({
   const widthPx = mmToPx(label.width);
   const heightPx = mmToPx(label.height);
 
+  const WrapperComponent = isInteractive ? motion.div : 'div';
+
   return (
-    <div 
+    <WrapperComponent 
       className={`relative ${showBorder ? 'border border-gray-300 dark:border-gray-700' : ''} 
         bg-white dark:bg-gray-800 overflow-hidden ${className} 
         ${fitContainer ? 'w-full h-full' : ''} 
@@ -61,9 +69,33 @@ export default function LabelPreview({
         maxHeight: '100%',
         aspectRatio: fitContainer ? `${aspectRatio}` : 'auto',
         position: 'relative',
-        boxShadow: '0 2px 8px rgba(0, 0, 0, 0.08)'
+        boxShadow: isHovered 
+          ? '0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1)'
+          : '0 4px 12px rgba(0, 0, 0, 0.08)'
       }}
+      onMouseEnter={isInteractive ? () => setIsHovered(true) : undefined}
+      onMouseLeave={isInteractive ? () => setIsHovered(false) : undefined}
+      whileHover={isInteractive ? { 
+        scale: 1.02,
+        boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1)',
+        transition: { duration: 0.3, ease: "easeOut" }
+      } : undefined}
     >
+      {/* Optional hover overlay for interactive mode */}
+      {isInteractive && (
+        <motion.div 
+          className="absolute inset-0 bg-gradient-to-r from-indigo-500/0 via-purple-500/0 to-indigo-500/0 pointer-events-none"
+          initial={{ opacity: 0 }}
+          animate={{ 
+            opacity: isHovered ? 0.1 : 0,
+            background: isHovered 
+              ? 'linear-gradient(135deg, rgba(99,102,241,0.1), rgba(168,85,247,0.1), rgba(99,102,241,0.1))'
+              : 'none' 
+          }}
+          transition={{ duration: 0.3 }}
+        />
+      )}
+
       {/* Renderujemy elementy etykiety */}
       {label.elements.map((element) => {
         // Obliczamy współczynnik skalowania dla trybu dopasowania do kontenera
@@ -78,7 +110,7 @@ export default function LabelPreview({
           case 'qrCode':
             const qrSize = mmToPx(element.width || 20) * Math.min(scaleFactorX, scaleFactorY);
             return (
-              <div 
+              <motion.div 
                 key={element.id}
                 className="absolute"
                 style={{
@@ -87,8 +119,9 @@ export default function LabelPreview({
                   width: `${qrSize}px`,
                   height: `${qrSize}px`,
                 }}
+                whileHover={isInteractive ? { scale: 1.05 } : undefined}
               >
-                <div className="bg-white p-1 h-full w-full flex items-center justify-center rounded-sm">
+                <div className="bg-white p-1 h-full w-full flex items-center justify-center rounded-sm shadow-sm">
                   <QRCodeSVG
                     value={element.value || "https://example.com"}
                     size={Math.max(10, qrSize - 4)}
@@ -98,12 +131,12 @@ export default function LabelPreview({
                     includeMargin={false}
                   />
                 </div>
-              </div>
+              </motion.div>
             );
 
           case 'uuidText':
             return (
-              <div 
+              <motion.div 
                 key={element.id}
                 className="absolute truncate"
                 style={{
@@ -114,14 +147,15 @@ export default function LabelPreview({
                   maxWidth: `${mmToPx(label.width - element.x) * scaleFactorX}px`,
                   color: textColor
                 }}
+                whileHover={isInteractive ? { scale: 1.03 } : undefined}
               >
                 {element.value}
-              </div>
+              </motion.div>
             );
             
           case 'company':
             return (
-              <div 
+              <motion.div 
                 key={element.id}
                 className="absolute font-bold truncate"
                 style={{
@@ -132,14 +166,15 @@ export default function LabelPreview({
                   maxWidth: `${mmToPx(label.width - element.x) * scaleFactorX}px`,
                   color: textColor
                 }}
+                whileHover={isInteractive ? { scale: 1.03 } : undefined}
               >
                 {element.value}
-              </div>
+              </motion.div>
             );
             
           case 'product':
             return (
-              <div 
+              <motion.div 
                 key={element.id}
                 className="absolute truncate"
                 style={{
@@ -149,14 +184,15 @@ export default function LabelPreview({
                   maxWidth: `${mmToPx(label.width - element.x) * scaleFactorX}px`,
                   color: textColor
                 }}
+                whileHover={isInteractive ? { scale: 1.03 } : undefined}
               >
                 {element.value}
-              </div>
+              </motion.div>
             );
           
           case 'barcode':
             return (
-              <div 
+              <motion.div 
                 key={element.id}
                 className="absolute truncate flex items-center justify-center"
                 style={{
@@ -168,9 +204,10 @@ export default function LabelPreview({
                   padding: '1px',
                   borderRadius: '2px'
                 }}
+                whileHover={isInteractive ? { scale: 1.03 } : undefined}
               >
                 <div className="text-xs text-center">Barcode:{element.value || "12345678"}</div>
-              </div>
+              </motion.div>
             );
             
           default:
@@ -180,10 +217,15 @@ export default function LabelPreview({
       
       {/* Dodaj efekt nakładki przy braku elementów */}
       {label.elements.length === 0 && (
-        <div className="absolute inset-0 flex items-center justify-center text-gray-400 dark:text-gray-500 text-sm font-medium">
+        <motion.div 
+          className="absolute inset-0 flex items-center justify-center text-gray-400 dark:text-gray-500 text-sm font-medium"
+          initial={{ opacity: 0.8 }}
+          animate={{ opacity: isHovered ? 1 : 0.8 }}
+          transition={{ duration: 0.3 }}
+        >
           Pusta etykieta
-        </div>
+        </motion.div>
       )}
-    </div>
+    </WrapperComponent>
   );
 }
