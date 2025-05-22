@@ -54,9 +54,9 @@ export default function LabelCanvas({
           style={{
             left: `${mmToPixels(element.x)}px`,
             top: `${mmToPixels(element.y)}px`,
-            width: `${mmToPixels(element.width)}px`,
-            height: `${mmToPixels(element.height)}px`,
-            transform: `rotate(${element.rotation}deg)`,
+            width: `${mmToPixels(element.width || 20)}px`,
+            height: `${mmToPixels(element.height || 20)}px`,
+            transform: `rotate(${element.rotation || 0}deg)`,
             zIndex: selectedElementId === element.id ? 10 : 1,
           }}
           onClick={() => editable && handleElementSelect(element.id)}

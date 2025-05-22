@@ -4,13 +4,16 @@
 
 export interface LabelElement {
   id: string;
-  type: 'text' | 'image' | 'shape' | 'barcode';
+  type: 'text' | 'image' | 'shape' | 'barcode' | 'qrCode' | 'uuidText' | 'company' | 'product';
   x: number;
   y: number;
-  width: number;
-  height: number;
-  rotation: number;
-  properties: TextElementProperties | ImageElementProperties | ShapeElementProperties | BarcodeElementProperties;
+  width?: number;
+  height?: number;
+  rotation?: number;
+  size?: number;
+  value?: string;
+  color?: string;
+  properties?: TextElementProperties | ImageElementProperties | ShapeElementProperties | BarcodeElementProperties;
 }
 
 export interface TextElementProperties {
@@ -49,8 +52,9 @@ export interface Label {
   width: number; // szerokość etykiety w mm
   height: number; // wysokość etykiety w mm
   elements: LabelElement[];
-  createdAt: Date;
-  updatedAt: Date;
+  projectId?: string;
+  createdAt?: string | Date;
+  updatedAt?: string | Date;
 }
 
 export interface LabelTemplate {

@@ -51,9 +51,11 @@ export default function ProjectsPage() {
   if (sort === 'name-desc') filtered = filtered.sort((a, b) => b.name.localeCompare(a.name));
 
   // Usuwanie projektu
-  const handleDeleteProject = async (projectId: string, event: React.MouseEvent) => {
-    event.preventDefault();
-    event.stopPropagation();
+  const handleDeleteProject = async (projectId: string, event?: React.MouseEvent) => {
+    if (event) {
+      event.preventDefault();
+      event.stopPropagation();
+    }
     if (confirm('Czy na pewno chcesz usunąć ten projekt?')) {
       await fetch(`/api/projects/${projectId}`, { method: 'DELETE', credentials: 'include' });
       setProjects(prev => prev.filter(p => p.id !== projectId));

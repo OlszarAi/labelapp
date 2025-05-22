@@ -1,5 +1,6 @@
 import { CalendarIcon, ClockIcon, TagIcon, TrashIcon, FolderIcon } from '@heroicons/react/24/solid';
 import { useRouter } from 'next/navigation';
+import { Project } from '@/lib/types/project.types';
 
 function stringToHslColor(str: string, s = 60, l = 60) {
   let hash = 0;
@@ -8,11 +9,16 @@ function stringToHslColor(str: string, s = 60, l = 60) {
   return `hsl(${h},${s}%,${l}%)`;
 }
 
-export default function ProjectListItem({ project, onDelete }) {
+interface ProjectListItemProps {
+  project: Project;
+  onDelete: (id: string, e?: React.MouseEvent) => void;
+}
+
+export default function ProjectListItem({ project, onDelete }: ProjectListItemProps) {
   const router = useRouter();
   const color = stringToHslColor(project.name);
 
-  const handleClick = (e) => {
+  const handleClick = (e: React.MouseEvent) => {
     // If not clicking the delete button, navigate to project
     if (!e.defaultPrevented) {
       router.push(`/projekty/${project.id}`);

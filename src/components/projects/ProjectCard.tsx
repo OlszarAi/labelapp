@@ -2,11 +2,17 @@ import { motion } from 'framer-motion';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { CalendarIcon, ClockIcon, TagIcon, TrashIcon } from '@heroicons/react/24/solid';
+import { Project } from '@/lib/types/project.types';
 
-export default function ProjectCard({ project, onDelete }) {
+interface ProjectCardProps {
+  project: Project;
+  onDelete: (id: string, e?: React.MouseEvent) => void;
+}
+
+export default function ProjectCard({ project, onDelete }: ProjectCardProps) {
   const router = useRouter();
 
-  const handleClick = (e) => {
+  const handleClick = (e: React.MouseEvent) => {
     // If not clicking the delete button, navigate to project
     if (!e.defaultPrevented) {
       router.push(`/projekty/${project.id}`);
@@ -47,7 +53,7 @@ export default function ProjectCard({ project, onDelete }) {
           </button>
         </div>
         <div className="flex flex-wrap gap-2 mb-4">
-          {(project.labels || []).slice(0, 3).map(label => (
+          {(project.labels || []).slice(0, 3).map((label) => (
             <span key={label.id} className="px-3 py-1 rounded-full bg-blue-500/10 text-blue-500 dark:bg-blue-400/10 dark:text-blue-400 text-xs font-medium">
               {label.name}
             </span>

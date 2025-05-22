@@ -3,7 +3,8 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter, useParams } from 'next/navigation';
-import { LabelStorageService, SavedProject, Label } from '@/services/labelStorage';
+import { LabelStorageService, SavedProject } from '@/services/labelStorage';
+import { Label } from '@/lib/types/label.types';
 import { useAuth } from '@/lib/hooks/useAuth';
 import LabelPreview from '@/components/labels/LabelPreview';
 import { motion } from 'framer-motion';
@@ -45,7 +46,7 @@ export default function ProjectDetailsPage() {
         
         // Pobierz etykiety projektu używając nowej funkcji
         const fetchedLabels = await LabelStorageService.getLabelsForProject(projectId);
-        setLabels(fetchedLabels);
+        setLabels(fetchedLabels as unknown as Label[]);
       } catch (err) {
         console.error('Error fetching project details:', err);
         setError('Wystąpił błąd podczas pobierania szczegółów projektu');
@@ -58,8 +59,9 @@ export default function ProjectDetailsPage() {
   }, [projectId, isAuthenticated]);
 
   // Format date for display
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
+  const formatDate = (dateString: string | Date | undefined) => {
+    if (!dateString) return 'Nieznana data';
+    const date = typeof dateString === 'string' ? new Date(dateString) : dateString;
     return date.toLocaleDateString('pl-PL', { 
       year: 'numeric', 
       month: 'short', 
@@ -68,8 +70,9 @@ export default function ProjectDetailsPage() {
   };
   
   // Format date and time for display
-  const formatDateTime = (dateString: string) => {
-    const date = new Date(dateString);
+  const formatDateTime = (dateString: string | Date | undefined) => {
+    if (!dateString) return 'Nieznana data';
+    const date = typeof dateString === 'string' ? new Date(dateString) : dateString;
     return date.toLocaleDateString('pl-PL', { 
       year: 'numeric', 
       month: 'short', 
@@ -121,7 +124,7 @@ export default function ProjectDetailsPage() {
       
       // Pobierz zaktualizowaną listę etykiet
       const updatedLabels = await LabelStorageService.getLabelsForProject(projectId);
-      setLabels(updatedLabels);
+      setLabels(updatedLabels as unknown as Label[]);
       
     } catch (error) {
       console.error('Błąd podczas tworzenia nowej etykiety:', error);
