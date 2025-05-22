@@ -1,7 +1,7 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ArrowUpIcon, ArrowDownIcon } from '@heroicons/react/24/solid';
-import { ClockIcon, PencilSquareIcon, DocumentTextIcon } from '@heroicons/react/24/outline';
+import { ClockIcon, PencilSquareIcon, DocumentTextIcon, FunnelIcon, AdjustmentsHorizontalIcon } from '@heroicons/react/24/outline';
 
 interface LabelsSortingToolbarProps {
   sortBy: string;
@@ -16,15 +16,30 @@ export default function LabelsSortingToolbar({
   sortDirection,
   setSortDirection 
 }: LabelsSortingToolbarProps) {
-  // Animation variants
+  // For server-side rendering compatibility
+  const [isLargeEnvironment, setIsLargeEnvironment] = useState(false);
+  
+  // Check screen size on client side only
+  useEffect(() => {
+    setIsLargeEnvironment(window.innerWidth < 1200);
+    
+    const handleResize = () => {
+      setIsLargeEnvironment(window.innerWidth < 1200);
+    };
+    
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
+  
+  // Animation variants - optimized based on environment
   const containerVariants = {
     hidden: { opacity: 0, y: -10 },
     visible: { 
       opacity: 1, 
       y: 0,
       transition: { 
-        duration: 0.4,
-        staggerChildren: 0.1
+        duration: isLargeEnvironment ? 0.2 : 0.4,
+        staggerChildren: isLargeEnvironment ? 0.05 : 0.1
       }
     }
   };
@@ -36,69 +51,57 @@ export default function LabelsSortingToolbar({
 
   return (
     <motion.div 
-      className="flex flex-wrap gap-4 mb-6 p-4 rounded-lg bg-white/50 dark:bg-gray-800/50 backdrop-blur-sm border border-gray-200/60 dark:border-gray-700/60 shadow-sm"
+      className="w-full flex flex-wrap md:flex-nowrap justify-between gap-4 p-2 rounded-lg backdrop-blur-sm"
       variants={containerVariants}
       initial="hidden"
       animate="visible"
       layout
     >
-      <motion.div className="flex items-center" variants={itemVariants}>
-        <span className="text-sm font-medium text-gray-700 dark:text-gray-300 mr-3">
-          Sortuj według:
-        </span>
-        <div className="inline-flex rounded-lg shadow-sm bg-gradient-to-r from-indigo-50/80 to-purple-50/80 dark:from-indigo-950/30 dark:to-purple-950/30 p-0.5">
+      <motion.div 
+        className="flex items-center bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200/40 dark:border-gray-700/40 px-4 py-2" 
+        variants={itemVariants}
+      >
+        <div className="flex items-center text-indigo-600 dark:text-indigo-400 mr-3">
+          <AdjustmentsHorizontalIcon className="w-5 h-5 mr-1.5" />
+          <span className="text-sm font-medium">Sortowanie:</span>
+        </div>
+        <div className="inline-flex rounded-lg shadow-sm bg-gray-100 dark:bg-gray-700/50 p-1">
           <motion.button
             type="button"
             onClick={() => setSortBy('name')}
-            className={`relative inline-flex items-center px-4 py-2 text-sm font-medium rounded-l-md ${
+            className={`relative inline-flex items-center px-3 py-1.5 text-sm font-medium rounded-l-md ${
               sortBy === 'name'
-                ? 'bg-gradient-to-r from-indigo-500 to-indigo-600 text-white shadow-md'
-                : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'
-            } transition-all duration-300 ease-in-out`}
-            whileHover={sortBy !== 'name' ? { scale: 1.02, y: -1 } : {}}
+                ? 'bg-indigo-600 text-white shadow-sm'
+                : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600'
+            } transition-all duration-200 ease-in-out`}
+            whileHover={sortBy !== 'name' ? { scale: 1.02 } : {}}
             whileTap={{ scale: 0.98 }}
           >
-            <DocumentTextIcon className="w-4 h-4 mr-2" />
+            <DocumentTextIcon className="w-4 h-4 mr-1" />
             Nazwa
-            {sortBy === 'name' && (
-              <motion.span
-                className="absolute inset-0 rounded-l-md ring-2 ring-indigo-500/50 dark:ring-indigo-400/50"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ duration: 0.3 }}
-              />
-            )}
           </motion.button>
           <motion.button
             type="button"
             onClick={() => setSortBy('createdAt')}
-            className={`relative inline-flex items-center px-4 py-2 text-sm font-medium ${
+            className={`relative inline-flex items-center px-3 py-1.5 text-sm font-medium ${
               sortBy === 'createdAt'
-                ? 'bg-gradient-to-r from-indigo-500 to-indigo-600 text-white shadow-md'
-                : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'
-            } transition-all duration-300 ease-in-out`}
-            whileHover={sortBy !== 'createdAt' ? { scale: 1.02, y: -1 } : {}}
+                ? 'bg-indigo-600 text-white shadow-sm'
+                : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600'
+            } transition-all duration-200 ease-in-out`}
+            whileHover={sortBy !== 'createdAt' ? { scale: 1.02 } : {}}
             whileTap={{ scale: 0.98 }}
           >
-            <ClockIcon className="w-4 h-4 mr-2" />
-            Data utworzenia
-            {sortBy === 'createdAt' && (
-              <motion.span
-                className="absolute inset-0 ring-2 ring-indigo-500/50 dark:ring-indigo-400/50"
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ duration: 0.3 }}
-              />
-            )}
+            <ClockIcon className="w-4 h-4 mr-1" />
+            Utworzone
           </motion.button>
           <motion.button
             type="button"
             onClick={() => setSortBy('updatedAt')}
-            className={`relative inline-flex items-center px-4 py-2 text-sm font-medium rounded-r-md ${
+            className={`relative inline-flex items-center px-3 py-1.5 text-sm font-medium rounded-r-md ${
               sortBy === 'updatedAt'
-                ? 'bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-md'
-                : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700'
-            } transition-all duration-300 ease-in-out`}
+                ? 'bg-indigo-600 text-white shadow-sm'
+                : 'text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600'
+            } transition-all duration-200 ease-in-out`}
             whileHover={sortBy !== 'updatedAt' ? { scale: 1.02, y: -1 } : {}}
             whileTap={{ scale: 0.98 }}
           >
@@ -119,24 +122,24 @@ export default function LabelsSortingToolbar({
       <motion.button
         type="button"
         onClick={() => setSortDirection(sortDirection === 'asc' ? 'desc' : 'asc')}
-        whileHover={{ scale: 1.05, y: -1 }}
-        whileTap={{ scale: 0.95 }}
+        whileHover={{ scale: isLargeEnvironment ? 1.03 : 1.05, y: isLargeEnvironment ? 0 : -1 }}
+        whileTap={{ scale: isLargeEnvironment ? 0.97 : 0.95 }}
         variants={itemVariants}
         className={`inline-flex items-center px-4 py-2 text-sm font-medium rounded-md 
           ${sortDirection === 'asc' 
           ? 'bg-gradient-to-br from-emerald-500 to-teal-500 text-white shadow-md' 
           : 'bg-gradient-to-br from-amber-500 to-orange-500 text-white shadow-md'} 
-          transition-all duration-300`}
+          transition-all ${isLargeEnvironment ? 'duration-200' : 'duration-300'}`}
       >
         <AnimatePresence mode="wait" initial={false}>
           {sortDirection === 'asc' ? (
             <motion.div 
               key="ascending"
               className="flex items-center"
-              initial={{ opacity: 0, y: 10 }}
+              initial={{ opacity: 0, y: isLargeEnvironment ? 5 : 10 }}
               animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              transition={{ duration: 0.2 }}
+              exit={{ opacity: 0, y: isLargeEnvironment ? -5 : -10 }}
+              transition={{ duration: isLargeEnvironment ? 0.15 : 0.2 }}
             >
               <ArrowUpIcon className="w-4 h-4 mr-2" /> Rosnąco
             </motion.div>
@@ -144,10 +147,10 @@ export default function LabelsSortingToolbar({
             <motion.div 
               key="descending"
               className="flex items-center"
-              initial={{ opacity: 0, y: 10 }}
+              initial={{ opacity: 0, y: isLargeEnvironment ? 5 : 10 }}
               animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              transition={{ duration: 0.2 }}
+              exit={{ opacity: 0, y: isLargeEnvironment ? -5 : -10 }}
+              transition={{ duration: isLargeEnvironment ? 0.15 : 0.2 }}
             >
               <ArrowDownIcon className="w-4 h-4 mr-2" /> Malejąco
             </motion.div>

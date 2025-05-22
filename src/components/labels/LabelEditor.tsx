@@ -1,8 +1,10 @@
 "use client";
 
 import { useState, useRef, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { QRCodeSVG } from 'qrcode.react';
 import { Label, LabelElement } from '@/lib/types/label.types';
+import { LabelStorageService } from '@/services/labelStorage';
 
 interface LabelEditorProps {
   labelSettings: {
@@ -35,6 +37,7 @@ interface LabelEditorProps {
   labelId?: string | null;
   onLabelSelect?: (labelId: string) => void;
   onCreateNewLabel?: () => void;
+  sidebarWidth?: number; // Dodana nowa właściwość dla szerokości sidebara
 }
 
 export default function LabelEditor({
@@ -46,8 +49,10 @@ export default function LabelEditor({
   projectId = null,
   labelId = null,
   onLabelSelect = () => {},
-  onCreateNewLabel = () => {}
+  onCreateNewLabel = () => {},
+  sidebarWidth = 300 // Domyślna wartość
 }: LabelEditorProps) {
+  const router = useRouter();
   const containerRef = useRef<HTMLDivElement>(null);
   const editorRef = useRef<HTMLDivElement>(null);
   const workspaceRef = useRef<HTMLDivElement>(null);
@@ -388,12 +393,32 @@ export default function LabelEditor({
     if (typeof onLabelSelect === 'function') {
       onLabelSelect(labelId);
     } else {
-      // Fallback - przeładowanie strony z nowym labelId
+      // Fallback - używamy router.push zamiast window.location.replace
       if (projectId) {
         const timestamp = new Date().getTime();
         const url = `/editor?projectId=${projectId}&labelId=${labelId}&nocache=${timestamp}`;
         console.log(`[DEBUG] Przekierowuję do: ${url}`);
-        window.location.replace(url);
+        
+        // Używamy pushState aby zachować scroll position
+        window.history.pushState({}, '', url);
+        
+        // Ładujemy dane etykiety bez odświeżania strony
+        (async () => {
+          try {
+            const label = await LabelStorageService.getLabelByIdNoCache(projectId, labelId);
+            if (label) {
+              setLabelSettings({
+                width: label.width,
+                height: label.height,
+                unit: 'mm',
+                elements: label.elements || []
+              });
+              setSelectedElementId(null);
+            }
+          } catch (error) {
+            console.error('Error loading label:', error);
+          }
+        })();
       }
     }
   };
@@ -406,7 +431,8 @@ export default function LabelEditor({
       // Fallback - przeładowanie strony bez labelId
       if (projectId) {
         const url = `/editor?projectId=${projectId}`;
-        window.location.replace(url);
+        // Używamy routera zamiast window.location, aby uniknąć pełnego odświeżenia strony
+        router.push(url);
       }
     }
   };
@@ -869,8 +895,8 @@ export default function LabelEditor({
         className={`fixed left-0 bottom-0 z-40 transition-transform duration-300 ease-in-out transform ${isLabelListCollapsed ? 'translate-y-full' : 'translate-y-0'}`}
         style={{ 
           maxHeight: "40vh", 
-          width: "calc(100% - 300px)", // Odejmujemy szerokość sidebar
-          marginLeft: "300px" // Taka sama szerokość jak sidebar
+          width: `calc(100% - ${sidebarWidth}px)`, // Używamy dynamicznej szerokości sidebara
+          marginLeft: `${sidebarWidth}px` // Używamy dynamicznej szerokości sidebara
         }}
       >
         <div className="bg-white dark:bg-neutral-800 shadow-lg border border-gray-200 dark:border-neutral-700 rounded-t-xl p-4 mx-4">

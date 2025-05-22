@@ -587,15 +587,39 @@ export default function EditorPage() {
             projectLabels={projectLabels}
             projectId={projectId}
             labelId={labelId}
-            onLabelSelect={(selectedLabelId) => {
-              // Resetujemy stan komponentu i przekierowujemy
+            sidebarWidth={sidebarWidth}
+            onLabelSelect={async (selectedLabelId) => {
+              // Resetujemy stan komponentu i aktualizujemy URL bez odświeżania
               const timestamp = new Date().getTime();
               const url = `/editor?projectId=${projectId}&labelId=${selectedLabelId}&nocache=${timestamp}`;
               console.log(`[DEBUG] Przekierowuję do etykiety: ${selectedLabelId}`);
-              window.location.replace(url);
+              
+              // Aktualizujemy URL bez przeładowania strony
+              window.history.pushState({}, '', url);
+              
+              // Ładujemy dane etykiety
+              try {
+                setLabelId(selectedLabelId);
+                // Make sure projectId and selectedLabelId are both strings (not null)
+                if (projectId && selectedLabelId) {
+                  const label = await LabelStorageService.getLabelByIdNoCache(projectId, selectedLabelId);
+                  if (label) {
+                    setLabelName(label.name);
+                    setLabelSettings({
+                      width: label.width,
+                      height: label.height,
+                      unit: 'mm',
+                      elements: label.elements || []
+                    });
+                  }
+                }
+                setSelectedElementId(null);
+              } catch (error) {
+                console.error('Błąd podczas ładowania etykiety:', error);
+              }
             }}
             onCreateNewLabel={() => {
-              // Resetujemy stan i przekierowujemy na URL bez labelId
+              // Resetujemy stan i aktualizujemy URL bez labelId bez odświeżania strony
               setLabelId(null);
               setLabelName('Nowa etykieta');
               setLabelSettings({
@@ -604,7 +628,11 @@ export default function EditorPage() {
                 unit: 'mm',
                 elements: []
               });
-              router.push(`/editor?projectId=${projectId}`);
+              // Aktualizujemy URL bez przeładowania strony
+              if (projectId && typeof projectId === 'string') {
+                const url = `/editor?projectId=${projectId}`;
+                window.history.pushState({}, '', url);
+              }
             }}
           />
           

@@ -27,6 +27,8 @@ interface EditorSidebarProps {
   labelSettings: LabelSettings;
   setLabelSettings: (settings: LabelSettings) => void;
   selectedElementId: string | null;
+  sidebarRef?: React.RefObject<HTMLDivElement>;
+  onWidthChange?: (width: number) => void;
 }
 
 // Function to generate UUIDs with customizable length
@@ -39,7 +41,9 @@ const generateCustomUuid = (length: number = 36): string => {
 export default function EditorSidebar({
   labelSettings,
   setLabelSettings,
-  selectedElementId
+  selectedElementId,
+  sidebarRef,
+  onWidthChange
 }: EditorSidebarProps) {
   // Referencje do sekcji w panelu bocznym do przewijania
   const qrCodeSectionRef = useRef<HTMLDivElement>(null);
@@ -195,8 +199,28 @@ export default function EditorSidebar({
     ? labelSettings.elements.find((el: LabelElement) => el.id === selectedElementId)
     : null;
 
+  // Efekt do śledzenia zmian szerokości sidebara
+  useEffect(() => {
+    if (!sidebarRef?.current || !onWidthChange) return;
+    
+    const resizeObserver = new ResizeObserver(entries => {
+      for (const entry of entries) {
+        const width = entry.contentRect.width;
+        onWidthChange(width);
+      }
+    });
+    
+    resizeObserver.observe(sidebarRef.current);
+    
+    return () => {
+      if (sidebarRef.current) {
+        resizeObserver.unobserve(sidebarRef.current);
+      }
+    };
+  }, [sidebarRef, onWidthChange]);
+
   return (
-    <div className="relative flex flex-col h-full max-h-full">
+    <div ref={sidebarRef} className="relative flex flex-col h-full max-h-full">
       {/* Logo */}
       <div className="px-6 pt-4 flex items-center">
         <a className="flex-none rounded-xl text-xl inline-block font-semibold dark:focus:opacity-80" href="/">

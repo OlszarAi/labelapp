@@ -6,6 +6,7 @@ import { useRouter, useParams } from 'next/navigation';
 import { LabelStorageService, SavedProject } from '@/services/labelStorage';
 import { Label } from '@/lib/types/label.types';
 import { useAuth } from '@/lib/hooks/useAuth';
+import { useOptimizedAnimations } from '@/lib/hooks/useOptimizedAnimations';
 import LabelPreview from '@/components/labels/LabelPreview';
 import { motion, AnimatePresence } from 'framer-motion';
 import LabelsSortingToolbar from '@/components/ui/LabelsSortingToolbar';
@@ -31,6 +32,9 @@ export default function ProjectDetailsPage() {
   const sortedLabels = useMemo(() => {
     if (!labels || labels.length === 0) return [];
     
+    // Add an optimization flag for large collections
+    const isLargeCollection = labels.length > 30;
+    
     return [...labels].sort((a, b) => {
       // For text fields like 'name'
       if (sortBy === 'name') {
@@ -51,6 +55,15 @@ export default function ProjectDetailsPage() {
       return sortDirection === 'asc' ? comparison : -comparison;
     });
   }, [labels, sortBy, sortDirection]);
+  
+  // Use our animation optimization hook
+  const animations = useOptimizedAnimations(sortedLabels.length, {
+    largeThreshold: 30,   // When to start basic optimizations
+    veryLargeThreshold: 50  // When to apply aggressive optimizations
+  });
+  
+  // For backward compatibility with existing code
+  const isLargeCollection = animations.isLargeCollection;
 
   // Fetch project details and labels when component mounts
   useEffect(() => {
@@ -64,7 +77,10 @@ export default function ProjectDetailsPage() {
       try {
         setIsLoading(true);
         
-        // Pobierz szczegóły projektu
+        // Clear any cached data to ensure fresh results
+        LabelStorageService.clearCache();
+        
+        // Get project details
         const fetchedProject = await LabelStorageService.getProjectById(projectId);
         
         if (!fetchedProject) {
@@ -74,8 +90,8 @@ export default function ProjectDetailsPage() {
         
         setProject(fetchedProject);
         
-        // Pobierz etykiety projektu używając nowej funkcji
-        const fetchedLabels = await LabelStorageService.getLabelsForProject(projectId);
+        // Get project labels using getSortedLabelsForProject for consistent behavior
+        const fetchedLabels = await LabelStorageService.getSortedLabelsForProject(projectId);
         setLabels(fetchedLabels as unknown as Label[]);
       } catch (err) {
         console.error('Error fetching project details:', err);
@@ -131,11 +147,20 @@ export default function ProjectDetailsPage() {
     try {
       setIsLoading(true);
       
-      // Utwórz nową etykietę w projekcie
+      // Remember current scroll position
+      const scrollPosition = window.scrollY;
+      
+      // Clear cache before creating to ensure we'll get fresh data
+      LabelStorageService.clearCache();
+      
+      // Create new label in project
       const response = await fetch(`${API_URL}/projects/${projectId}/labels`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0'
         },
         body: JSON.stringify({
           name: `Nowa etykieta - ${new Date().toLocaleDateString()}`,
@@ -152,9 +177,22 @@ export default function ProjectDetailsPage() {
       
       const newLabel = await response.json();
       
-      // Pobierz zaktualizowaną listę etykiet
-      const updatedLabels = await LabelStorageService.getLabelsForProject(projectId);
+      // Get updated labels list with sorting and update both state variables
+      const updatedLabels = await LabelStorageService.getSortedLabelsForProject(projectId);
       setLabels(updatedLabels as unknown as Label[]);
+      
+      // After state update is complete, scroll to the new label
+      setTimeout(() => {
+        // Find the newly created label and scroll to it
+        const newLabelElement = document.getElementById(`label-${newLabel.id}`);
+        if (newLabelElement) {
+          newLabelElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        } else {
+          // If element not found, restore previous scroll position
+          window.scrollTo({ top: scrollPosition });
+          console.log('Could not find label element with ID:', `label-${newLabel.id}`);
+        }
+      }, 300); // Increased timeout to ensure DOM has updated
       
     } catch (error) {
       console.error('Błąd podczas tworzenia nowej etykiety:', error);
@@ -301,59 +339,116 @@ export default function ProjectDetailsPage() {
     }
   };
 
+  // This comment line now replaces the old optimization variable
+  // The isLargeCollection variable is now provided by the useOptimizedAnimations hook
+
   return (
     <div className="min-h-screen bg-gray-100 dark:bg-neutral-900">
-      {/* Header with project details */}
-      <div className="bg-white dark:bg-gray-800 shadow-md">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-          <div className="flex items-center gap-4">
-            <Link 
-              href="/projekty"
-              className="text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-300 transition-colors"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-              </svg>
-            </Link>
-            
-            <div className="flex items-center text-gray-600 dark:text-gray-300">
-              <span className="h-8 w-8">
-                {renderProjectIcon(project.icon)}
-              </span>
-            </div>
-            
-            <h1 className="text-2xl md:text-3xl font-bold text-gray-900 dark:text-white">
-              {project.name}
-            </h1>
+      {/* Modern header with project details */}
+      <div className="bg-gradient-to-r from-indigo-600 via-purple-600 to-indigo-700 dark:from-indigo-800 dark:via-purple-900 dark:to-indigo-900 shadow-lg">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 relative">
+          {/* Decorative elements */}
+          <div className="absolute inset-0 overflow-hidden opacity-20 pointer-events-none">
+            <div className="absolute -right-10 -top-10 w-40 h-40 bg-white dark:bg-purple-300 rounded-full opacity-10"></div>
+            <div className="absolute left-1/4 -bottom-8 w-64 h-16 bg-white dark:bg-purple-300 rounded-full blur-xl opacity-10"></div>
+            <div className="absolute right-1/3 top-1/2 w-20 h-20 bg-white dark:bg-purple-300 rounded-full blur-md opacity-10"></div>
           </div>
           
-          {project.description && (
-            <p className="mt-2 text-gray-600 dark:text-gray-300 max-w-3xl">
-              {project.description}
-            </p>
-          )}
+          {/* Top navigation and back button */}
+          <div className="flex items-center justify-between relative z-10 mb-6">
+            <Link 
+              href="/projekty"
+              className="group flex items-center text-white hover:text-indigo-100 transition-colors bg-white/10 hover:bg-white/20 rounded-full pl-2 pr-4 py-1 shadow-md"
+            >
+              <span className="p-1 rounded-full bg-white/20 mr-2 group-hover:bg-white/30 transition-colors">
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                </svg>
+              </span>
+              Wszystkie projekty
+            </Link>
+            
+            <motion.button
+              onClick={handleCreateNewLabel}
+              className="inline-flex items-center px-4 py-2 border border-white/30 text-sm font-medium rounded-full shadow-sm text-white bg-white/10 hover:bg-white/20 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-indigo-600 focus:ring-white transition-all duration-200"
+              whileHover={{ scale: 1.05 }}
+              whileTap={{ scale: 0.95 }}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+              Nowa etykieta
+            </motion.button>
+          </div>
           
-          <div className="mt-4 flex items-center gap-4 text-sm text-gray-500 dark:text-gray-400">
+          {/* Project title and icon */}
+          <div className="flex items-center gap-4 relative z-10">
+            <div className="flex items-center justify-center p-3 bg-white/15 rounded-xl shadow-lg">
+              <motion.div 
+                className="text-white"
+                whileHover={{ scale: 1.1, rotate: 5 }}
+                transition={{ type: "spring", stiffness: 400, damping: 10 }}
+              >
+                <span className="h-10 w-10 block">
+                  {renderProjectIcon(project.icon)}
+                </span>
+              </motion.div>
+            </div>
+            
             <div>
+              <h1 className="text-2xl md:text-3xl font-bold text-white">
+                {project.name}
+              </h1>
+              
+              {project.description && (
+                <p className="mt-2 text-indigo-100 dark:text-indigo-200 max-w-3xl">
+                  {project.description}
+                </p>
+              )}
+            </div>
+          </div>
+          
+          {/* Project stats */}
+          <div className="mt-6 flex flex-wrap md:flex-nowrap items-center gap-4 relative z-10">
+            <div className="flex items-center gap-2 bg-white/15 rounded-full px-4 py-1 text-sm text-white">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 0 1 2.25-2.25h13.5A2.25 2.25 0 0 1 21 7.5v11.25m-18 0A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75m-18 0v-7.5A2.25 2.25 0 0 1 5.25 9h13.5A2.25 2.25 0 0 1 21 11.25v7.5" />
+              </svg>
               <span>Utworzony: {formatDate(project.createdAt)}</span>
             </div>
-            <div>
+            <div className="flex items-center gap-2 bg-white/15 rounded-full px-4 py-1 text-sm text-white">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
+              </svg>
               <span>Ostatnia edycja: {formatDate(project.updatedAt)}</span>
             </div>
-            <div>
-              <span>{labels.length} {labels.length === 1 ? 'etykieta' : labels.length >= 2 && labels.length <= 4 ? 'etykiety' : 'etykiet'}</span>
+            <div className="flex items-center gap-2 bg-white/15 rounded-full px-4 py-1 text-sm text-white">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9.568 3H5.25A2.25 2.25 0 0 0 3 5.25v4.318c0 .597.237 1.17.659 1.591l9.581 9.581c.699.699 1.78.872 2.607.33a18.095 18.095 0 0 0 5.223-5.223c.542-.827.369-1.908-.33-2.607L11.16 3.66A2.25 2.25 0 0 0 9.568 3Z" />
+              </svg>
+              <span>{sortedLabels.length} {sortedLabels.length === 1 ? 'etykieta' : sortedLabels.length >= 2 && sortedLabels.length <= 4 ? 'etykiety' : 'etykiet'}</span>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Content - Labels List */}
+      {/* Content - Labels List with modern UI */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="flex justify-between items-center mb-6">
-          <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Etykiety w projekcie</h2>
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-8">
+          <div>
+            <h2 className="text-xl font-semibold text-gray-900 dark:text-white flex items-center gap-2">
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-6 h-6 text-indigo-600 dark:text-indigo-400">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9.568 3H5.25A2.25 2.25 0 0 0 3 5.25v4.318c0 .597.237 1.17.659 1.591l9.581 9.581c.699.699 1.78.872 2.607.33a18.095 18.095 0 0 0 5.223-5.223c.542-.827.369-1.908-.33-2.607L11.16 3.66A2.25 2.25 0 0 0 9.568 3Z" />
+              </svg>
+              Etykiety w projekcie
+            </h2>
+            <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">
+              Zarządzaj i edytuj etykiety w tym projekcie
+            </p>
+          </div>
           <motion.button
             onClick={handleCreateNewLabel}
-            className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
+            className="inline-flex items-center px-5 py-2.5 border border-transparent text-sm font-medium rounded-lg shadow-sm text-white bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500"
             whileHover={{ scale: 1.05, boxShadow: "0 4px 12px rgba(79, 70, 229, 0.3)" }}
             whileTap={{ scale: 0.95 }}
           >
@@ -365,12 +460,14 @@ export default function ProjectDetailsPage() {
         </div>
         
         {labels.length > 0 && (
-          <LabelsSortingToolbar 
-            sortBy={sortBy}
-            setSortBy={setSortBy}
-            sortDirection={sortDirection}
-            setSortDirection={setSortDirection}
-          />
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-2 mb-6">
+            <LabelsSortingToolbar 
+              sortBy={sortBy}
+              setSortBy={setSortBy}
+              sortDirection={sortDirection}
+              setSortDirection={setSortDirection}
+            />
+          </div>
         )}
 
         {labels.length === 0 ? (
@@ -402,41 +499,50 @@ export default function ProjectDetailsPage() {
         ) : (
           <motion.div 
             className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6"
-            layout
-            transition={{ duration: 0.6, type: "spring", stiffness: 120, damping: 20 }}
+            layout={animations.containerProps.layout}
+            transition={animations.containerProps.transition}
           >
-            <AnimatePresence mode="popLayout">
+            <AnimatePresence mode={animations.presenceProps.mode}>
               {sortedLabels.map((label, index) => (
                 <motion.div
                   key={label.id}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, scale: 0.9 }}
-                  transition={{ 
-                    duration: 0.4,
-                    delay: index * 0.05,
-                    ease: [0.25, 0.1, 0.25, 1.0] 
+                  id={`label-${label.id}`}
+                  initial={{ 
+                    opacity: 0, 
+                    y: animations.isVeryLargeCollection ? 5 : animations.isLargeCollection ? 10 : 20 
                   }}
-                  layout
-                  layoutId={`label-card-${label.id}`}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ 
+                    opacity: 0, 
+                    scale: animations.isVeryLargeCollection ? 0.98 : animations.isLargeCollection ? 0.95 : 0.9 
+                  }}
+                  transition={animations.getItemProps(index).transition}
+                  layout={animations.getItemProps(index).layout}
+                  layoutId={animations.getItemProps(index).layoutId?.replace('item', `label-card-${label.id}`)}
                 >
                   <Link href={`/editor?projectId=${projectId}&labelId=${label.id}`}>
                     <motion.div 
                       className="bg-gradient-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-900 overflow-hidden shadow-md rounded-lg transition-all duration-300 hover:shadow-lg border border-gray-200/50 dark:border-gray-700/50 h-full relative group"
                       whileHover={{ 
-                        y: -7,
-                        boxShadow: "0 15px 30px -5px rgba(0, 0, 0, 0.1), 0 10px 15px -5px rgba(0, 0, 0, 0.04)",
-                        scale: 1.02,
-                        transition: { duration: 0.3, ease: "easeOut" }
+                        y: animations.hoverProps.y,
+                        boxShadow: animations.isVeryLargeCollection 
+                          ? "0 5px 10px -5px rgba(0, 0, 0, 0.1)" 
+                          : animations.isLargeCollection 
+                            ? "0 10px 20px -5px rgba(0, 0, 0, 0.1)" 
+                            : "0 15px 30px -5px rgba(0, 0, 0, 0.1), 0 10px 15px -5px rgba(0, 0, 0, 0.04)",
+                        scale: animations.hoverProps.scale,
+                        transition: animations.hoverProps.transition
                       }}
                     >
-                      <motion.div
-                        className="absolute inset-0 bg-gradient-to-r from-indigo-500/5 via-purple-500/5 to-indigo-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-lg pointer-events-none"
-                        whileHover={{ 
-                          opacity: 0.2,
-                          transition: { duration: 0.3 } 
-                        }}
-                      />
+                      {!isLargeCollection && (
+                        <motion.div
+                          className="absolute inset-0 bg-gradient-to-r from-indigo-500/5 via-purple-500/5 to-indigo-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-lg pointer-events-none"
+                          whileHover={{ 
+                            opacity: 0.2,
+                            transition: { duration: 0.3 } 
+                          }}
+                        />
+                      )}
                       <div className="bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center overflow-hidden relative p-6 border-b border-gray-200 dark:border-gray-700"
                            style={{ backdropFilter: "blur(8px)" }}>
                         <div className="w-full h-[180px] flex items-center justify-center">
@@ -508,14 +614,14 @@ export default function ProjectDetailsPage() {
             
             {/* Add New Label Card */}
             <motion.div 
-              initial={{ opacity: 0, y: 20 }}
+              initial={{ opacity: 0, y: animations.isVeryLargeCollection ? 5 : animations.isLargeCollection ? 10 : 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ 
-                duration: 0.4, 
-                delay: sortedLabels.length * 0.05,
-                ease: [0.25, 0.1, 0.25, 1.0]
+                duration: animations.isVeryLargeCollection ? 0.15 : animations.isLargeCollection ? 0.2 : 0.4, 
+                delay: animations.isVeryLargeCollection ? 0 : animations.isLargeCollection ? 0.1 : Math.min(sortedLabels.length * 0.05, 0.5),
+                ease: animations.isLargeCollection ? "easeOut" : [0.25, 0.1, 0.25, 1.0]
               }}
-              layout
+              layout={animations.containerProps.layout}
             >
               <motion.div 
                 onClick={handleCreateNewLabel}
