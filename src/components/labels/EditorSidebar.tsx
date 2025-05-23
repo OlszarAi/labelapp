@@ -3,6 +3,7 @@
 import { useEffect, useRef } from 'react';
 import { v4 as uuidv4 } from 'uuid';
 import ColorPickerTab from './ColorPickerTab';
+import TextFormattingControls from './TextFormattingControls';
 
 interface LabelElement {
   id: string;
@@ -14,6 +15,13 @@ interface LabelElement {
   value?: string;
   color?: string;
   uuidLength?: number;
+  // Text styling properties
+  bold?: boolean;
+  italic?: boolean;
+  strikethrough?: boolean;
+  fontFamily?: string;
+  fontSize?: number;
+  properties?: any; // JSON object for additional properties
 }
 
 interface LabelSettings {
@@ -61,38 +69,59 @@ export default function EditorSidebar({
 
   // Funkcja do dodawania nowych elementów do etykiety
   const addElement = (type: string) => {
+    const defaultTextProps = {
+      bold: false,
+      italic: false,
+      strikethrough: false,
+      fontFamily: 'Arial'
+    };
+
     const newElement = {
       id: uuidv4(),
       type,
       x: 10,
       y: 10,
+      // Default text styling properties
+      ...defaultTextProps
     };
 
     // Dodaj specyficzne właściwości w zależności od typu elementu
     switch (type) {
       case 'qrCode':
         Object.assign(newElement, {
-          width: 25,
+          width: 25, // For QR code, width is the size
           value: 'https://example.com'
         });
         break;
       case 'uuidText':
         Object.assign(newElement, {
-          size: 10,
+          fontSize: 10, // Use fontSize for text elements
           value: generateCustomUuid(),
-          uuidLength: 36 // Default length is 36 (full UUID)
+          uuidLength: 36, // Default length is 36 (full UUID)
+          properties: {
+            ...defaultTextProps,
+            fontSize: 10
+          }
         });
         break;
       case 'company':
         Object.assign(newElement, {
-          size: 14,
-          value: 'Nazwa firmy'
+          fontSize: 14, // Default consistent text size
+          value: 'Nazwa firmy',
+          properties: {
+            ...defaultTextProps,
+            fontSize: 14
+          }
         });
         break;
       case 'product':
         Object.assign(newElement, {
-          size: 12,
-          value: 'Nazwa produktu'
+          fontSize: 12, // Default consistent text size
+          value: 'Nazwa produktu',
+          properties: {
+            ...defaultTextProps,
+            fontSize: 12
+          }
         });
         break;
     }
@@ -107,10 +136,35 @@ export default function EditorSidebar({
   const updateElementProperty = (id: string, property: string, value: any) => {
     const updatedElements = labelSettings.elements.map((element: LabelElement) => {
       if (element.id === id) {
-        return {
-          ...element,
-          [property]: value
-        };
+        // Create a copy of the element
+        let updatedElement = {...element};
+        
+        // Handle property paths like 'properties.bold'
+        if (property.includes('.')) {
+          const parts = property.split('.');
+          if (parts[0] === 'properties') {
+            const propName = parts[1];
+            const currentProps = element.properties || {};
+            updatedElement.properties = {
+              ...currentProps,
+              [propName]: value
+            };
+          }
+        } else {
+          // Directly set the property
+          (updatedElement as any)[property] = value;
+          
+          // For fontSize, ensure it's stored in properties as well
+          if (property === 'fontSize') {
+            const currentProps = element.properties || {};
+            updatedElement.properties = {
+              ...currentProps,
+              fontSize: value
+            };
+          }
+        }
+        
+        return updatedElement;
       }
       return element;
     });
@@ -401,7 +455,7 @@ export default function EditorSidebar({
                         <label className="block text-sm text-gray-700 dark:text-gray-400 mb-1">Rozmiar</label>
                         <input
                           type="number"
-                          value={element.width}
+                          value={element.width || element.size}
                           onChange={(e) => updateElementProperty(element.id, 'width', Number(e.target.value))}
                           className="py-1 px-2 block w-full border-gray-200 rounded-md text-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-neutral-900 dark:border-neutral-700 dark:text-neutral-400"
                         />
@@ -507,15 +561,7 @@ export default function EditorSidebar({
                         </div>
                       </div>
 
-                      <div className="mt-3">
-                        <label className="block text-sm text-gray-700 dark:text-gray-400 mb-1">Rozmiar czcionki</label>
-                        <input
-                          type="number"
-                          value={element.size}
-                          onChange={(e) => updateElementProperty(element.id, 'size', Number(e.target.value))}
-                          className="py-1 px-2 block w-full border-gray-200 rounded-md text-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-neutral-900 dark:border-neutral-700 dark:text-neutral-400"
-                        />
-                      </div>
+
 
                       <div className="mt-3">
                         <label className="block text-sm text-gray-700 dark:text-gray-400 mb-1">Długość UUID</label>
@@ -564,6 +610,17 @@ export default function EditorSidebar({
                           presetColors={predefinedColors}
                         />
                       </div>
+
+                      {/* Text Formatting Controls */}
+                      <TextFormattingControls
+                        elementId={element.id}
+                        bold={(element.properties as any)?.bold}
+                        italic={(element.properties as any)?.italic}
+                        strikethrough={(element.properties as any)?.strikethrough}
+                        fontFamily={(element.properties as any)?.fontFamily}
+                        fontSize={element.fontSize}
+                        updateElementProperty={updateElementProperty}
+                      />
                     </div>
                   ))}
               </div>
@@ -591,10 +648,11 @@ export default function EditorSidebar({
                   onClick={() => addElement('company')}
                   className="py-1 px-2 inline-flex justify-center items-center gap-1 rounded-md border font-medium bg-white text-gray-700 shadow-sm align-middle hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-offset-white focus:ring-blue-600 transition-all text-xs dark:bg-neutral-900 dark:hover:bg-neutral-800 dark:border-neutral-700 dark:text-neutral-400 dark:hover:text-white dark:focus:ring-offset-neutral-900"
                 >
-                  <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-3 h-3">
+                  <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-3 h-3">
                     <path fillRule="evenodd" d="M12 3.75a.75.75 0 0 1 .75.75v6.75h6.75a.75.75 0 0 1 0 1.5h-6.75v6.75a.75.75 0 0 1-1.5 0v-6.75H4.5a.75.75 0 0 1 0-1.5h6.75V4.5a.75.75 0 0 1 .75-.75Z" clipRule="evenodd" />
-                  </svg>
-                </button>
+                </svg>
+                Firma
+              </button>
               </div>
             </div>
 
@@ -648,16 +706,6 @@ export default function EditorSidebar({
                       </div>
 
                       <div className="mt-3">
-                        <label className="block text-sm text-gray-700 dark:text-gray-400 mb-1">Rozmiar czcionki</label>
-                        <input
-                          type="number"
-                          value={element.size}
-                          onChange={(e) => updateElementProperty(element.id, 'size', Number(e.target.value))}
-                          className="py-1 px-2 block w-full border-gray-200 rounded-md text-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-neutral-900 dark:border-neutral-700 dark:text-neutral-400"
-                        />
-                      </div>
-
-                      <div className="mt-3">
                         <label className="block text-sm text-gray-700 dark:text-gray-400 mb-1">Nazwa firmy</label>
                         <input
                           type="text"
@@ -674,6 +722,17 @@ export default function EditorSidebar({
                           presetColors={predefinedColors}
                         />
                       </div>
+
+                      {/* Text Formatting Controls */}
+                      <TextFormattingControls
+                        elementId={element.id}
+                        bold={(element.properties as any)?.bold}
+                        italic={(element.properties as any)?.italic}
+                        strikethrough={(element.properties as any)?.strikethrough}
+                        fontFamily={(element.properties as any)?.fontFamily}
+                        fontSize={element.fontSize}
+                        updateElementProperty={updateElementProperty}
+                      />
                     </div>
                   ))}
               </div>
@@ -703,8 +762,9 @@ export default function EditorSidebar({
                 >
                   <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-3 h-3">
                     <path fillRule="evenodd" d="M12 3.75a.75.75 0 0 1 .75.75v6.75h6.75a.75.75 0 0 1 0 1.5h-6.75v6.75a.75.75 0 0 1-1.5 0v-6.75H4.5a.75.75 0 0 1 0-1.5h6.75V4.5a.75.75 0 0 1 .75-.75Z" clipRule="evenodd" />
-                  </svg>
-                </button>
+                </svg>
+                Produkt
+              </button>
               </div>
             </div>
 
@@ -758,16 +818,6 @@ export default function EditorSidebar({
                       </div>
 
                       <div className="mt-3">
-                        <label className="block text-sm text-gray-700 dark:text-gray-400 mb-1">Rozmiar czcionki</label>
-                        <input
-                          type="number"
-                          value={element.size}
-                          onChange={(e) => updateElementProperty(element.id, 'size', Number(e.target.value))}
-                          className="py-1 px-2 block w-full border-gray-200 rounded-md text-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-neutral-900 dark:border-neutral-700 dark:text-neutral-400"
-                        />
-                      </div>
-
-                      <div className="mt-3">
                         <label className="block text-sm text-gray-700 dark:text-gray-400 mb-1">Nazwa produktu</label>
                         <input
                           type="text"
@@ -784,6 +834,17 @@ export default function EditorSidebar({
                           presetColors={predefinedColors}
                         />
                       </div>
+
+                      {/* Text Formatting Controls */}
+                      <TextFormattingControls
+                        elementId={element.id}
+                        bold={(element.properties as any)?.bold}
+                        italic={(element.properties as any)?.italic}
+                        strikethrough={(element.properties as any)?.strikethrough}
+                        fontFamily={(element.properties as any)?.fontFamily}
+                        fontSize={element.fontSize}
+                        updateElementProperty={updateElementProperty}
+                      />
                     </div>
                   ))}
               </div>

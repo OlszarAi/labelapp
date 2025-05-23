@@ -142,8 +142,11 @@ export default function LabelPreview({
                 style={{
                   left: `${posX}px`,
                   top: `${posY}px`,
-                  fontSize: `${element.size ? element.size * 0.7 : 6}px`,
-                  fontFamily: 'monospace',
+                  fontSize: `${element.fontSize || 6}px`,
+                  fontFamily: (element.properties as any)?.fontFamily || 'monospace',
+                  fontWeight: (element.properties as any)?.bold ? 'bold' : 'normal',
+                  fontStyle: (element.properties as any)?.italic ? 'italic' : 'normal',
+                  textDecoration: (element.properties as any)?.strikethrough ? 'line-through' : 'none',
                   maxWidth: `${mmToPx(label.width - element.x) * scaleFactorX}px`,
                   color: textColor
                 }}
@@ -157,12 +160,15 @@ export default function LabelPreview({
             return (
               <motion.div 
                 key={element.id}
-                className="absolute font-bold truncate"
+                className="absolute truncate"
                 style={{
                   left: `${posX}px`,
                   top: `${posY}px`,
-                  fontSize: `${element.size ? element.size * 0.7 : 8}px`,
-                  fontWeight: 'bold',
+                  fontSize: `${element.fontSize || 8}px`,
+                  fontFamily: (element.properties as any)?.fontFamily || 'Arial',
+                  fontWeight: (element.properties as any)?.bold ? 'bold' : 'normal',
+                  fontStyle: (element.properties as any)?.italic ? 'italic' : 'normal',
+                  textDecoration: (element.properties as any)?.strikethrough ? 'line-through' : 'none',
                   maxWidth: `${mmToPx(label.width - element.x) * scaleFactorX}px`,
                   color: textColor
                 }}
@@ -180,7 +186,11 @@ export default function LabelPreview({
                 style={{
                   left: `${posX}px`,
                   top: `${posY}px`,
-                  fontSize: `${element.size ? element.size * 0.7 : 7}px`,
+                  fontSize: `${element.fontSize || 7}px`,
+                  fontFamily: (element.properties as any)?.fontFamily || 'Arial',
+                  fontWeight: (element.properties as any)?.bold ? 'bold' : 'normal',
+                  fontStyle: (element.properties as any)?.italic ? 'italic' : 'normal',
+                  textDecoration: (element.properties as any)?.strikethrough ? 'line-through' : 'none',
                   maxWidth: `${mmToPx(label.width - element.x) * scaleFactorX}px`,
                   color: textColor
                 }}

@@ -62,20 +62,19 @@ export default function LabelCanvas({
           onClick={() => editable && handleElementSelect(element.id)}
         >
           {/* Renderowanie różnych typów elementów */}
-          {element.type === 'text' && (
+          {(element.type === 'text' || element.type === 'uuidText' || element.type === 'company' || element.type === 'product') && (
             <div 
               className="w-full h-full flex items-center justify-center"
               style={{
-                fontSize: `${(element.properties as any).fontSize}px`,
-                fontFamily: (element.properties as any).fontFamily,
-                color: (element.properties as any).color,
-                fontWeight: (element.properties as any).bold ? 'bold' : 'normal',
-                fontStyle: (element.properties as any).italic ? 'italic' : 'normal',
-                textDecoration: (element.properties as any).underline ? 'underline' : 'none',
-                textAlign: (element.properties as any).alignment,
+                fontSize: `${element.fontSize || (element.properties as any)?.fontSize || 12}px`,
+                fontFamily: (element.properties as any)?.fontFamily || 'Arial',
+                color: element.color || (element.properties as any)?.color || '#333333',
+                fontWeight: (element.properties as any)?.bold ? 'bold' : 'normal',
+                fontStyle: (element.properties as any)?.italic ? 'italic' : 'normal',
+                textDecoration: (element.properties as any)?.strikethrough ? 'line-through' : 'none',
               }}
             >
-              {(element.properties as any).text}
+              {element.value || ''}
             </div>
           )}
           

@@ -20,6 +20,13 @@ interface LabelEditorProps {
       value?: string;
       size?: number;
       color?: string;
+      // Text formatting properties
+      bold?: boolean;
+      italic?: boolean;
+      strikethrough?: boolean;
+      fontFamily?: string;
+      fontSize?: number;
+      properties?: any;
     }>;
   };
   setLabelSettings: (settings: any) => void;
@@ -500,7 +507,7 @@ export default function LabelEditor({
               title="Pokaż/ukryj linijki"
             >
               <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
-                <path d="M1 0a1 1 0 0 0-1 1v14a1 1 0 0 0 1 1h5v-1H2v-1h4v-1H4v-1h2v-1H2v-1h4V9H4V8h2V7H2V6h4V2h1v4h1V4h1v2h1V2h1v4h1V4h1v2h1V2h1v4h1V1a1 1 0 0 0-1-1H1z"/>
+                <path d="M1 0a1 1 0 0 0-1 1v14a1 1 0 0 0 1 1h5v-1H2v-1h4v-1H4v-1h2v-1H2v-1h4V9H4V8h2V7H2V6h4V2h1v4h1V4h1v2h1V2h1v4h1V1a1 1 0 0 0-1-1H1z"/>
               </svg>
             </button>
 
@@ -721,8 +728,11 @@ export default function LabelEditor({
                           top: `${posY}px`,
                           zIndex: isSelected ? 20 : 10,
                           padding: '2px 4px',
-                          fontSize: `${(element.size || 12) * zoomLevel}px`,
-                          fontFamily: 'monospace',
+                          fontSize: `${(element.fontSize || 12) * zoomLevel}px`,
+                          fontFamily: (element.properties as any)?.fontFamily || 'monospace',
+                          fontWeight: (element.properties as any)?.bold ? 'bold' : 'normal',
+                          fontStyle: (element.properties as any)?.italic ? 'italic' : 'normal',
+                          textDecoration: (element.properties as any)?.strikethrough ? 'line-through' : 'none',
                           maxWidth: `${calculatePixelSize(labelSettings.width - element.x, labelSettings.unit) * zoomLevel}px`,
                           whiteSpace: 'nowrap',
                           overflow: 'hidden',
@@ -755,8 +765,11 @@ export default function LabelEditor({
                           top: `${posY}px`,
                           zIndex: isSelected ? 20 : 10,
                           padding: '2px 4px',
-                          fontSize: `${(element.size || 12) * zoomLevel}px`,
-                          fontWeight: 'bold',
+                          fontSize: `${(element.fontSize || 12) * zoomLevel}px`,
+                          fontFamily: (element.properties as any)?.fontFamily || 'Arial',
+                          fontWeight: (element.properties as any)?.bold ? 'bold' : 'normal',
+                          fontStyle: (element.properties as any)?.italic ? 'italic' : 'normal',
+                          textDecoration: (element.properties as any)?.strikethrough ? 'line-through' : 'none',
                           maxWidth: `${calculatePixelSize(labelSettings.width - element.x, labelSettings.unit) * zoomLevel}px`,
                           overflow: 'hidden',
                           textOverflow: 'ellipsis',
@@ -788,7 +801,11 @@ export default function LabelEditor({
                           top: `${posY}px`,
                           zIndex: isSelected ? 20 : 10,
                           padding: '2px 4px',
-                          fontSize: `${(element.size || 12) * zoomLevel}px`,
+                          fontSize: `${(element.fontSize || 12) * zoomLevel}px`,
+                          fontFamily: (element.properties as any)?.fontFamily || 'Arial',
+                          fontWeight: (element.properties as any)?.bold ? 'bold' : 'normal',
+                          fontStyle: (element.properties as any)?.italic ? 'italic' : 'normal',
+                          textDecoration: (element.properties as any)?.strikethrough ? 'line-through' : 'none',
                           maxWidth: `${calculatePixelSize(labelSettings.width - element.x, labelSettings.unit) * zoomLevel}px`,
                           overflow: 'hidden',
                           textOverflow: 'ellipsis',
@@ -908,7 +925,7 @@ export default function LabelEditor({
               className="p-1.5 rounded-full text-gray-500 hover:text-gray-700 hover:bg-gray-100 dark:text-gray-400 dark:hover:text-gray-200 dark:hover:bg-gray-700"
             >
               <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
-                <path d="M7.646 4.646a.5.5 0 0 1 .708 0l6 6a.5.5 0 0 1-.708.708L8 5.707l-5.646 5.647a.5.5 0 0 1-.708-.708l6-6z"/>
+                <path d="M7.646 4.646a.5.5 0 0 1 .708 0l6 6a.5.5 0 0 1-.708.708L8 5.707l-5.646 5.647a.5.5 0 0 1-.708-.708l6-6a.5.5 0 0 1 .708 0z"/>
               </svg>
             </button>
           </div>
@@ -996,7 +1013,7 @@ export default function LabelEditor({
             </svg>
             <span>Pokaż etykiety</span>
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
-              <path d="M7.646 2.646a.5.5 0 0 1 .708 0l6 6a.5.5 0 0 1-.708.708L8 3.707 2.354 9.354a.5.5 0 1 1-.708-.708l6-6z"/>
+              <path d="M7.646 2.646a.5.5 0 0 1 .708 0l6 6a.5.5 0 0 1-.708.708L8 3.707 2.354 9.354a.5.5 0 1 1-.708-.708l6-6a.5.5 0 0 1 .708 0z"/>
             </svg>
           </div>
         </button>

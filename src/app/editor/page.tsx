@@ -17,11 +17,19 @@ interface LabelElement {
   x: number;
   y: number;
   width?: number;
-  height?: number; // Dodana właściwość height
+  height?: number;
   size?: number;
   value?: string;
   color?: string;
   uuidLength?: number;
+  rotation?: number; // Added rotation property
+  properties?: any; // Added properties field
+  // Text formatting properties
+  bold?: boolean;
+  italic?: boolean;
+  strikethrough?: boolean;
+  fontFamily?: string;
+  fontSize?: number;
 }
 
 interface LabelSettings {
@@ -288,19 +296,41 @@ export default function EditorPage() {
         name: labelName,
         width: labelSettings.width,
         height: labelSettings.height,
-        elements: labelSettings.elements.map(element => ({
-          type: element.type,
-          x: element.x,
-          y: element.y,
-          width: element.width || undefined,
-          height: element.height || element.size || undefined,
-          size: element.size || undefined,
-          value: element.value || undefined,
-          color: element.color || undefined,
-          uuidLength: element.uuidLength || undefined,
-          rotation: 0,
-          properties: {}
-        }))
+        elements: labelSettings.elements.map(element => {
+          // Determine if this is a text element
+          const isTextElement = ['text', 'uuidText', 'company', 'product'].includes(element.type);
+          
+          // Prepare properties based on element type
+          let properties = element.properties || {};
+          
+          // For text elements, ensure text formatting properties are included
+          if (isTextElement) {
+            properties = {
+              ...properties,
+              bold: properties.bold || false, // Allow bold to be configurable for all elements
+              italic: properties.italic || false,
+              strikethrough: properties.strikethrough || false,
+              fontFamily: properties.fontFamily || 'Arial'
+            };
+          }
+          
+          return {
+            type: element.type,
+            x: element.x,
+            y: element.y,
+            width: element.width || undefined,
+            height: element.height || undefined,
+            // Use fontSize for text elements instead of size
+            fontSize: isTextElement ? (element.fontSize || element.size || 12) : undefined,
+            // Keep size for QR code elements
+            size: element.type === 'qrCode' ? element.size || element.width : undefined,
+            value: element.value || undefined,
+            color: element.color || undefined,
+            uuidLength: element.uuidLength || undefined,
+            rotation: element.rotation || 0,
+            properties: properties
+          };
+        })
       };
       
       const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';

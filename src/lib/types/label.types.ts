@@ -9,11 +9,17 @@ export interface LabelElement {
   y: number;
   width?: number;
   height?: number;
-  rotation?: number;
-  size?: number;
+  rotation: number; // Changed from optional to required to match backend
+  size?: number; // Legacy field, use fontSize for text elements
   value?: string;
   color?: string;
-  properties?: TextElementProperties | ImageElementProperties | ShapeElementProperties | BarcodeElementProperties;
+  // Text styling properties
+  bold?: boolean;
+  italic?: boolean;
+  strikethrough?: boolean;
+  fontFamily?: string;
+  fontSize?: number;
+  properties: any; // Changed from optional to required to match backend
 }
 
 export interface TextElementProperties {
