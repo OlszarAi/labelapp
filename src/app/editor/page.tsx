@@ -6,7 +6,6 @@ import EditorSidebar from '@/components/labels/EditorSidebar';
 import LabelEditor from '@/components/labels/LabelEditor';
 import LabelPreview from '@/components/labels/LabelPreview';
 import { v4 as uuidv4 } from 'uuid';
-import { PdfGenerator } from '@/lib/utils/pdfGenerator';
 import { Label } from '@/lib/types/label.types';
 import { LabelStorageService } from '@/services/labelStorage';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -261,26 +260,12 @@ export default function EditorPage() {
   // Funkcja do eksportu etykiety do PDF
   const handleExportToPDF = async () => {
     try {
-      const pdfLabel: any = {
-        ...labelSettings,
-        name: labelName,
-        id: labelId || uuidv4(),
-        createdAt: new Date(),
-        updatedAt: new Date()
-      };
-      
-      const pdfUrl = await PdfGenerator.generateSingleLabelPdf(pdfLabel);
-      
-      // Utworzenie tymczasowego linka do pobrania PDF
-      const link = document.createElement('a');
-      link.href = pdfUrl;
-      link.download = `${labelName.replace(/\s+/g, '_').toLowerCase()}.pdf`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+      // PDF generation functionality has been temporarily removed
+      // Will be reimplemented in the future
+      console.log('PDF export functionality is currently unavailable');
+      alert('PDF export functionality is currently unavailable. It will be reimplemented soon.');
     } catch (error) {
-      console.error('Błąd podczas generowania PDF:', error);
-      alert('Wystąpił błąd podczas generowania PDF');
+      console.error('Error:', error);
     }
   };
 
@@ -597,13 +582,14 @@ export default function EditorPage() {
                 </button>
               )}
               
-              {/* Przycisk do generowania PDF */}
+              {/* Przycisk do generowania PDF - Tymczasowo wyłączony */}
               <button
                 onClick={handleExportToPDF}
-                className="py-2 px-4 inline-flex justify-center items-center gap-2 rounded-md border border-transparent font-semibold bg-indigo-600 text-white hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-600 focus:ring-offset-2 transition-all text-sm dark:focus:ring-offset-gray-800"
+                className="py-2 px-4 inline-flex justify-center items-center gap-2 rounded-md border border-transparent font-semibold bg-gray-400 text-white cursor-not-allowed transition-all text-sm dark:focus:ring-offset-gray-800"
+                title="Funkcja tymczasowo niedostępna"
               >
                 <svg className="size-4" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 9H4.5a2.5 2.5 0 0 0 0 5H6"></path><path d="M18 9h1.5a2.5 2.5 0 0 1 0 5H18"></path><path d="M8 9h8"></path><path d="M8 15h8"></path><path d="M8 4h8"></path><path d="M8 20h8"></path></svg>
-                Eksportuj do PDF
+                Eksportuj do PDF (wkrótce)
               </button>
             </div>
           </div>
