@@ -73,7 +73,8 @@ export default function EditorSidebar({
       bold: false,
       italic: false,
       strikethrough: false,
-      fontFamily: 'Arial'
+      fontFamily: 'Arial',
+      fontSize: 12 // Default fontSize for all text elements
     };
 
     const newElement = {
@@ -124,6 +125,19 @@ export default function EditorSidebar({
           }
         });
         break;
+      default:
+        // For any other text-like elements, ensure fontSize is set consistently
+        if (type.includes('Text') || type === 'text') {
+          Object.assign(newElement, {
+            fontSize: 12,
+            value: 'Text',
+            properties: {
+              ...defaultTextProps,
+              fontSize: 12
+            }
+          });
+        }
+        break;
     }
 
     setLabelSettings({
@@ -149,6 +163,11 @@ export default function EditorSidebar({
               ...currentProps,
               [propName]: value
             };
+            
+            // Special handling for fontSize in properties - update main property too
+            if (propName === 'fontSize') {
+              updatedElement.fontSize = value;
+            }
           }
         } else {
           // Directly set the property

@@ -718,16 +718,20 @@ export default function LabelEditor({
                     
                   case 'uuidText':
                     return (
-                      <div 
+                      <span 
                         key={element.id}
                         className={`absolute cursor-move transition-all duration-150 ${
-                          isSelected ? 'ring-2 ring-blue-500' : 'hover:ring-2 hover:ring-blue-300'
+                          isSelected ? 'ring-1 ring-blue-500' : 'hover:ring-1 hover:ring-blue-300'
                         }`}
                         style={{
                           left: `${posX}px`,
                           top: `${posY}px`,
+                          width: `${calculatePixelSize(element.width || 50, labelSettings.unit) * zoomLevel}px`,
+                          height: `${((element.fontSize || 12) * 1.2) * zoomLevel}px`,
                           zIndex: isSelected ? 20 : 10,
-                          padding: '2px 4px',
+                          padding: 0,
+                          margin: 0,
+                          overflow: 'visible',
                           fontSize: `${(element.fontSize || 12) * zoomLevel}px`,
                           fontFamily: (element.properties as any)?.fontFamily || 'monospace',
                           fontWeight: (element.properties as any)?.bold ? 'bold' : 'normal',
@@ -738,7 +742,13 @@ export default function LabelEditor({
                           overflow: 'hidden',
                           textOverflow: 'ellipsis',
                           color: textColor,
-                          backgroundColor: isSelected ? 'rgba(59, 130, 246, 0.1)' : 'transparent'
+                          backgroundColor: isSelected ? 'rgba(59, 130, 246, 0.1)' : 'transparent',
+                          lineHeight: 1,
+                          display: 'block',
+                          border: 'none',
+                          boxSizing: 'content-box',
+                          textRendering: 'geometricPrecision',
+                          transformOrigin: 'top left',
                         }}
                         onMouseDown={(e) => handleDragStart(e, element.id, element.type)}
                         onClick={(e) => {
@@ -750,31 +760,42 @@ export default function LabelEditor({
                         {isSelected && (
                           <div className="absolute -top-2 -right-2 w-4 h-4 bg-blue-500 rounded-full border-2 border-white shadow-sm"></div>
                         )}
-                      </div>
+                      </span>
                     );
                     
                   case 'company':
                     return (
-                      <div 
+                      <span 
                         key={element.id}
                         className={`absolute cursor-move transition-all duration-150 ${
-                          isSelected ? 'ring-2 ring-blue-500' : 'hover:ring-2 hover:ring-blue-300'
+                          isSelected ? 'ring-1 ring-blue-500' : 'hover:ring-1 hover:ring-blue-300'
                         }`}
                         style={{
                           left: `${posX}px`,
                           top: `${posY}px`,
+                          width: `${calculatePixelSize(element.width || 50, labelSettings.unit) * zoomLevel}px`,
+                          height: `${((element.fontSize || 12) * 1.2) * zoomLevel}px`,
                           zIndex: isSelected ? 20 : 10,
-                          padding: '2px 4px',
+                          padding: 0,
+                          margin: 0,
+                          overflow: 'visible',
                           fontSize: `${(element.fontSize || 12) * zoomLevel}px`,
                           fontFamily: (element.properties as any)?.fontFamily || 'Arial',
                           fontWeight: (element.properties as any)?.bold ? 'bold' : 'normal',
                           fontStyle: (element.properties as any)?.italic ? 'italic' : 'normal',
                           textDecoration: (element.properties as any)?.strikethrough ? 'line-through' : 'none',
                           maxWidth: `${calculatePixelSize(labelSettings.width - element.x, labelSettings.unit) * zoomLevel}px`,
+                          whiteSpace: 'nowrap',
                           overflow: 'hidden',
                           textOverflow: 'ellipsis',
                           color: textColor,
-                          backgroundColor: isSelected ? 'rgba(59, 130, 246, 0.1)' : 'transparent'
+                          backgroundColor: isSelected ? 'rgba(59, 130, 246, 0.1)' : 'transparent',
+                          lineHeight: 1,
+                          display: 'block',
+                          border: 'none',
+                          boxSizing: 'content-box',
+                          textRendering: 'geometricPrecision',
+                          transformOrigin: 'top left',
                         }}
                         onMouseDown={(e) => handleDragStart(e, element.id, element.type)}
                         onClick={(e) => {
@@ -786,31 +807,42 @@ export default function LabelEditor({
                         {isSelected && (
                           <div className="absolute -top-2 -right-2 w-4 h-4 bg-blue-500 rounded-full border-2 border-white shadow-sm"></div>
                         )}
-                      </div>
+                      </span>
                     );
                     
                   case 'product':
                     return (
-                      <div 
+                      <span 
                         key={element.id}
                         className={`absolute cursor-move transition-all duration-150 ${
-                          isSelected ? 'ring-2 ring-blue-500' : 'hover:ring-2 hover:ring-blue-300'
+                          isSelected ? 'ring-1 ring-blue-500' : 'hover:ring-1 hover:ring-blue-300'
                         }`}
                         style={{
                           left: `${posX}px`,
                           top: `${posY}px`,
+                          width: `${calculatePixelSize(element.width || 50, labelSettings.unit) * zoomLevel}px`,
+                          height: `${((element.fontSize || 12) * 1.2) * zoomLevel}px`,
                           zIndex: isSelected ? 20 : 10,
-                          padding: '2px 4px',
+                          padding: 0,
+                          margin: 0,
+                          overflow: 'visible',
                           fontSize: `${(element.fontSize || 12) * zoomLevel}px`,
                           fontFamily: (element.properties as any)?.fontFamily || 'Arial',
                           fontWeight: (element.properties as any)?.bold ? 'bold' : 'normal',
                           fontStyle: (element.properties as any)?.italic ? 'italic' : 'normal',
                           textDecoration: (element.properties as any)?.strikethrough ? 'line-through' : 'none',
                           maxWidth: `${calculatePixelSize(labelSettings.width - element.x, labelSettings.unit) * zoomLevel}px`,
+                          whiteSpace: 'nowrap',
                           overflow: 'hidden',
                           textOverflow: 'ellipsis',
                           color: textColor,
-                          backgroundColor: isSelected ? 'rgba(59, 130, 246, 0.1)' : 'transparent'
+                          backgroundColor: isSelected ? 'rgba(59, 130, 246, 0.1)' : 'transparent',
+                          lineHeight: 1,
+                          display: 'block',
+                          border: 'none',
+                          boxSizing: 'content-box',
+                          textRendering: 'geometricPrecision',
+                          transformOrigin: 'top left',
                         }}
                         onMouseDown={(e) => handleDragStart(e, element.id, element.type)}
                         onClick={(e) => {
@@ -822,7 +854,7 @@ export default function LabelEditor({
                         {isSelected && (
                           <div className="absolute -top-2 -right-2 w-4 h-4 bg-blue-500 rounded-full border-2 border-white shadow-sm"></div>
                         )}
-                      </div>
+                      </span>
                     );
                     
                   default:

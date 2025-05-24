@@ -106,8 +106,9 @@ export default function TextFormattingControls({
           value={fontSize || 12}
           onChange={(e) => {
             const newSize = Number(e.target.value);
+            // Update fontSize - the updateElementProperty function will handle
+            // synchronizing with properties.fontSize
             updateElementProperty(elementId, 'fontSize', newSize);
-            // We no longer need to update size separately - fontSize is used for text elements
           }}
           className="py-1 px-2 block w-full border-gray-200 rounded-md text-sm focus:border-blue-500 focus:ring-blue-500 dark:bg-neutral-900 dark:border-neutral-700 dark:text-neutral-400"
         />

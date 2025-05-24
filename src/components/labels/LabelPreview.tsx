@@ -136,68 +136,101 @@ export default function LabelPreview({
 
           case 'uuidText':
             return (
-              <motion.div 
+              <motion.span
                 key={element.id}
-                className="absolute truncate"
                 style={{
+                  position: 'absolute',
                   left: `${posX}px`,
                   top: `${posY}px`,
+                  transformOrigin: 'top left',
+                  margin: 0,
+                  padding: 0,
+                  border: 'none',
                   fontSize: `${element.fontSize || 6}px`,
                   fontFamily: (element.properties as any)?.fontFamily || 'monospace',
                   fontWeight: (element.properties as any)?.bold ? 'bold' : 'normal',
                   fontStyle: (element.properties as any)?.italic ? 'italic' : 'normal',
                   textDecoration: (element.properties as any)?.strikethrough ? 'line-through' : 'none',
-                  maxWidth: `${mmToPx(label.width - element.x) * scaleFactorX}px`,
-                  color: textColor
+                  maxWidth: `${mmToPx(element.width || 50) * scaleFactorX}px`,
+                  whiteSpace: 'nowrap',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  color: textColor,
+                  lineHeight: 1,
+                  display: 'block',
+                  boxSizing: 'content-box',
+                  textRendering: 'geometricPrecision',
                 }}
-                whileHover={isInteractive ? { scale: 1.03 } : undefined}
+                whileHover={isInteractive ? { scale: 1.05 } : undefined}
               >
                 {element.value}
-              </motion.div>
+              </motion.span>
             );
             
           case 'company':
             return (
-              <motion.div 
+              <motion.span
                 key={element.id}
-                className="absolute truncate"
                 style={{
+                  position: 'absolute',
                   left: `${posX}px`,
                   top: `${posY}px`,
+                  transformOrigin: 'top left',
+                  margin: 0,
+                  padding: 0,
+                  border: 'none',
                   fontSize: `${element.fontSize || 8}px`,
                   fontFamily: (element.properties as any)?.fontFamily || 'Arial',
                   fontWeight: (element.properties as any)?.bold ? 'bold' : 'normal',
                   fontStyle: (element.properties as any)?.italic ? 'italic' : 'normal',
                   textDecoration: (element.properties as any)?.strikethrough ? 'line-through' : 'none',
-                  maxWidth: `${mmToPx(label.width - element.x) * scaleFactorX}px`,
-                  color: textColor
+                  maxWidth: `${mmToPx(element.width || 50) * scaleFactorX}px`,
+                  whiteSpace: 'nowrap',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  color: textColor,
+                  lineHeight: 1,
+                  display: 'block',
+                  boxSizing: 'content-box',
+                  textRendering: 'geometricPrecision',
                 }}
-                whileHover={isInteractive ? { scale: 1.03 } : undefined}
+                whileHover={isInteractive ? { scale: 1.05 } : undefined}
               >
                 {element.value}
-              </motion.div>
+              </motion.span>
             );
             
           case 'product':
             return (
-              <motion.div 
+              <motion.span
                 key={element.id}
-                className="absolute truncate"
                 style={{
+                  position: 'absolute',
                   left: `${posX}px`,
                   top: `${posY}px`,
+                  transformOrigin: 'top left',
+                  margin: 0,
+                  padding: 0,
+                  border: 'none',
                   fontSize: `${element.fontSize || 7}px`,
                   fontFamily: (element.properties as any)?.fontFamily || 'Arial',
                   fontWeight: (element.properties as any)?.bold ? 'bold' : 'normal',
                   fontStyle: (element.properties as any)?.italic ? 'italic' : 'normal',
                   textDecoration: (element.properties as any)?.strikethrough ? 'line-through' : 'none',
-                  maxWidth: `${mmToPx(label.width - element.x) * scaleFactorX}px`,
-                  color: textColor
+                  maxWidth: `${mmToPx(element.width || 50) * scaleFactorX}px`,
+                  whiteSpace: 'nowrap',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  color: textColor,
+                  lineHeight: 1,
+                  display: 'block',
+                  boxSizing: 'content-box',
+                  textRendering: 'geometricPrecision',
                 }}
-                whileHover={isInteractive ? { scale: 1.03 } : undefined}
+                whileHover={isInteractive ? { scale: 1.05 } : undefined}
               >
                 {element.value}
-              </motion.div>
+              </motion.span>
             );
           
           case 'barcode':

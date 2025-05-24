@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from 'react';
+import { QRCodeSVG } from 'qrcode.react';
 import { Label, LabelElement } from '@/lib/types/label.types';
 
 interface LabelCanvasProps {
@@ -63,18 +64,48 @@ export default function LabelCanvas({
         >
           {/* Renderowanie różnych typów elementów */}
           {(element.type === 'text' || element.type === 'uuidText' || element.type === 'company' || element.type === 'product') && (
-            <div 
-              className="w-full h-full flex items-center justify-center"
+            <span 
               style={{
+                position: 'absolute',
+                padding: 0,
+                margin: 0,
+                border: 0,
+                left: 0,
+                top: 0,
                 fontSize: `${element.fontSize || (element.properties as any)?.fontSize || 12}px`,
                 fontFamily: (element.properties as any)?.fontFamily || 'Arial',
                 color: element.color || (element.properties as any)?.color || '#333333',
                 fontWeight: (element.properties as any)?.bold ? 'bold' : 'normal',
                 fontStyle: (element.properties as any)?.italic ? 'italic' : 'normal',
                 textDecoration: (element.properties as any)?.strikethrough ? 'line-through' : 'none',
+                maxWidth: `${mmToPixels(element.width || 50)}px`,
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                lineHeight: 1,
+                boxSizing: 'content-box',
+                display: 'block',
+                transformOrigin: 'top left',
+                fontKerning: 'none',
+                letterSpacing: 'normal',
+                wordSpacing: 'normal',
+                textRendering: 'geometricPrecision',
               }}
             >
               {element.value || ''}
+            </span>
+          )}
+          
+          {element.type === 'qrCode' && (
+            <div className="absolute top-0 left-0 flex items-center justify-center w-full h-full">
+              <QRCodeSVG
+                value={element.value || "https://example.com"}
+                size={Math.max(10, mmToPixels(element.width || 20) - 8)}
+                bgColor={"#ffffff"}
+                fgColor={element.color || "#333333"}
+                level={"L"}
+                includeMargin={false}
+              />
             </div>
           )}
           

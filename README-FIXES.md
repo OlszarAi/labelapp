@@ -27,6 +27,7 @@ These errors were caused by a mismatch between the Prisma client schema and the 
 2. **Query Adjustments**:
    - Used explicit field selection in queries to avoid requesting non-existent fields
    - Updated controllers to use `fontSize` instead of `size` when working with text elements
+   - Fixed issue where 'product' element type was missing from isTextElement check in updateLabel function
 
 3. **Error Handling**:
    - Added better error logging in controllers
