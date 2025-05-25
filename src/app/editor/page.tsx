@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, Suspense } from 'react';
 import Link from 'next/link';
 import EditorSidebar from '@/components/labels/EditorSidebar';
 import LabelEditor from '@/components/labels/LabelEditor';
@@ -47,7 +47,7 @@ interface ProjectLabel {
   updatedAt: string;
 }
 
-export default function EditorPage() {
+function EditorContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   
@@ -662,5 +662,15 @@ export default function EditorPage() {
       </div>
       {/* End Content */}
     </div>
+  );
+}
+
+export default function EditorPage() {
+  return (
+    <Suspense fallback={<div className="flex items-center justify-center h-screen">
+      <div className="text-lg">Ładowanie edytora...</div>
+    </div>}>
+      <EditorContent />
+    </Suspense>
   );
 }
