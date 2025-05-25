@@ -39,7 +39,11 @@ const FabricCanvas: React.FC<FabricCanvasProps> = ({
   const [canvasState, setCanvasState] = useState<CanvasState>({
     isLoading: true,
     hasError: false,
-    isDirty: false
+    isDirty: false,
+    isInitialized: false,
+    version: '1.0.0',
+    readonly: false,
+    objectCount: 0
   });
   
   // Canvas dimensions and view state
@@ -48,7 +52,11 @@ const FabricCanvas: React.FC<FabricCanvasProps> = ({
     height,
     zoom: 1,
     offsetX: 0,
-    offsetY: 0
+    offsetY: 0,
+    minZoom: 0.1,
+    maxZoom: 10,
+    viewportTransform: [1, 0, 0, 1, 0, 0],
+    visibleArea: { left: 0, top: 0, right: width, bottom: height }
   });
   
   // Pan state

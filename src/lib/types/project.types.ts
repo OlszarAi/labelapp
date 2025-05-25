@@ -1,5 +1,5 @@
 /**
- * Definicje typów dla projektów
+ * Legacy project types for backward compatibility
  */
 import { Label } from './label.types';
 

@@ -1,7 +1,9 @@
 /**
- * Definicje typów dla etykiet
+ * Legacy label types for backward compatibility
+ * These will be gradually migrated to the new Fabric.js type system
  */
 
+// Legacy types for existing components
 export interface LabelElement {
   id: string;
   type: 'text' | 'image' | 'shape' | 'barcode' | 'qrCode' | 'uuidText' | 'company' | 'product';
@@ -9,17 +11,32 @@ export interface LabelElement {
   y: number;
   width?: number;
   height?: number;
-  rotation: number; // Changed from optional to required to match backend
-  size?: number; // Legacy field, use fontSize for text elements
+  rotation: number;
+  size?: number;
   value?: string;
   color?: string;
-  // Text styling properties
   bold?: boolean;
   italic?: boolean;
   strikethrough?: boolean;
   fontFamily?: string;
   fontSize?: number;
-  properties: any; // Changed from optional to required to match backend
+  properties: any;
+}
+
+export interface Label {
+  id: string;
+  name: string;
+  width: number;
+  height: number;
+  elements: LabelElement[];
+  backgroundColor?: string;
+  projectId?: string;
+  createdAt?: string | Date;
+  updatedAt?: string | Date;
+}
+
+export interface LabelCollection {
+  [key: string]: Label;
 }
 
 export interface TextElementProperties {
@@ -29,52 +46,30 @@ export interface TextElementProperties {
   color: string;
   bold: boolean;
   italic: boolean;
-  underline: boolean;
-  alignment: 'left' | 'center' | 'right';
+  strikethrough: boolean;
 }
 
 export interface ImageElementProperties {
   src: string;
-  alt: string;
-  objectFit: 'contain' | 'cover' | 'fill';
+  alt?: string;
+  opacity?: number;
 }
 
 export interface ShapeElementProperties {
-  shapeType: 'rectangle' | 'ellipse' | 'line';
+  shape: 'rectangle' | 'circle' | 'triangle';
   fillColor: string;
-  strokeColor: string;
-  strokeWidth: number;
+  strokeColor?: string;
+  strokeWidth?: number;
 }
 
 export interface BarcodeElementProperties {
-  barcodeType: 'qr' | 'code128' | 'code39' | 'ean13';
   value: string;
-  includeText: boolean;
+  format: string;
+  displayValue?: boolean;
 }
 
-export interface Label {
-  id: string;
-  name: string;
-  width: number; // szerokość etykiety w mm
-  height: number; // wysokość etykiety w mm
-  elements: LabelElement[];
-  projectId?: string;
-  createdAt?: string | Date;
-  updatedAt?: string | Date;
-}
-
-export interface LabelTemplate {
-  id: string;
-  name: string;
-  width: number;
-  height: number;
-  elements: LabelElement[];
-}
-
-export interface LabelCollection {
-  id: string;
-  name: string;
-  labels: Label[];
-  createdAt: Date;
-  updatedAt: Date;
+export interface QRCodeElementProperties {
+  value: string;
+  size?: number;
+  level?: 'L' | 'M' | 'Q' | 'H';
 }
