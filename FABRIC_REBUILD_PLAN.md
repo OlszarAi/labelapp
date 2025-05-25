@@ -34,23 +34,17 @@ src/
 │   │   ├── PropertiesPanel.tsx       # Object properties
 │   │   ├── LayersPanel.tsx           # Object layers
 │   │   └── ElementLibrary.tsx        # Predefined elements
-│   ├── shared/
-│   │   ├── Cursor.tsx                # Custom cursor
-│   │   ├── CursorChat.tsx            # Collaborative cursor chat
-│   │   └── Avatar.tsx                # User avatars
 │   └── ui/
-│       ├── Button.tsx
-│       ├── Input.tsx
-│       └── Select.tsx
+│       ├── Button.tsx                # (existing)
+│       ├── Input.tsx                 # (existing)
+│       └── Select.tsx                # (existing)
 ├── hooks/
 │   ├── useFabricCanvas.ts            # Canvas management
 │   ├── useKeyboardShortcuts.ts       # Shortcuts handler
-│   ├── useCollaboration.ts           # Real-time features
 │   └── useCanvasHistory.ts           # Undo/redo system
 ├── lib/
 │   ├── fabric-utils.ts               # Fabric.js utilities
-│   ├── canvas-objects.ts             # Custom object types
-│   └── collaboration.ts              # Collaboration logic
+│   └── canvas-objects.ts             # Custom object types
 └── types/
     ├── fabric.ts                     # Fabric.js type extensions
     └── canvas.ts                     # Canvas-specific types
@@ -65,15 +59,12 @@ src/
 │   └── CanvasHistory.ts              # History/versions
 ├── controllers/
 │   ├── fabricCanvasController.ts     # Canvas CRUD
-│   ├── collaborationController.ts    # Real-time sync
 │   └── migrationController.ts        # Migration from old format
 ├── services/
 │   ├── canvasSerializer.ts           # Canvas serialization
-│   ├── collaborationService.ts       # WebSocket handling
 │   └── migrationService.ts           # Data migration
 └── routes/
     ├── fabricCanvas.ts
-    ├── collaboration.ts
     └── migration.ts
 ```
 
@@ -95,11 +86,6 @@ Frontend packages:
 - @types/fabric: ^5.3.0
 - uuid: ^9.0.0
 - @types/uuid: ^9.0.0
-- socket.io-client: ^4.7.0 (for real-time collaboration)
-
-Backend packages:
-- socket.io: ^4.7.0
-- uuid: ^9.0.0
 
 Update package.json files and ensure TypeScript configurations support Fabric.js types.
 ```
@@ -139,7 +125,6 @@ Include types for:
 - Custom object properties (id, metadata, locked state)
 - Canvas state interface
 - Tool types (select, text, rectangle, circle, etc.)
-- Collaboration types (cursor position, user info)
 
 Utility functions for:
 - Object serialization/deserialization
@@ -315,7 +300,7 @@ UI should be similar to layer panels in design software with:
 
 ---
 
-## Phase 4: Advanced Features (4 hours)
+## Phase 4: Advanced Features (2.5 hours)
 
 ### Task 4.1: Custom Fabric Objects
 **Estimated Time:** 2 hours
@@ -340,34 +325,7 @@ Each custom object should:
 Also create factory functions for easy object creation and registration with Fabric.js.
 ```
 
-### Task 4.2: Real-time Collaboration Setup
-**Estimated Time:** 1.5 hours
-
-**Prompt:**
-```
-Create src/hooks/useCollaboration.ts for real-time features:
-
-Features:
-- User cursor tracking and display
-- Real-time canvas synchronization
-- User presence indicators
-- Conflict resolution for simultaneous edits
-- Connection state management
-
-Components needed:
-- src/components/shared/Cursor.tsx - Custom cursor display
-- src/components/shared/CursorChat.tsx - Cursor chat messages
-- src/components/shared/Avatar.tsx - User avatars
-
-The system should:
-- Use WebSocket for real-time communication
-- Handle connection drops gracefully
-- Implement operational transformation for conflicts
-- Show user actions (selection, typing, etc.)
-- Maintain performance with multiple users
-```
-
-### Task 4.3: Canvas Export and Import
+### Task 4.2: Canvas Export and Import
 **Estimated Time:** 30 minutes
 
 **Prompt:**
@@ -395,7 +353,7 @@ Features:
 
 ---
 
-## Phase 5: Backend Integration (5 hours)
+## Phase 5: Backend Integration (3 hours)
 
 ### Task 5.1: New Database Models
 **Estimated Time:** 1 hour
@@ -422,11 +380,6 @@ Models needed:
    - snapshot (JSON)
    - action, timestamp
 
-4. CollaborationSession
-   - id, canvasId, userId
-   - isActive, lastSeen
-   - cursorPosition (JSON)
-
 Keep existing models unchanged for backward compatibility.
 ```
 
@@ -452,31 +405,6 @@ Features:
 - Performance optimizations for large canvases
 - Error handling and logging
 - Access control and permissions
-```
-
-### Task 5.3: Collaboration WebSocket Service
-**Estimated Time:** 2 hours
-
-**Prompt:**
-```
-Create src/services/collaborationService.ts for real-time features:
-
-WebSocket events:
-- canvas-join/leave - User joins/leaves canvas
-- object-modified - Object changes
-- cursor-moved - Cursor position updates
-- user-typing - Text input events
-- canvas-saved - Save notifications
-
-Features:
-- Room-based collaboration (per canvas)
-- User authentication and authorization
-- Conflict resolution logic
-- Message queuing and delivery guarantees
-- Performance monitoring
-- Connection management
-
-Integrate with existing authentication system and maintain user sessions.
 ```
 
 ---
@@ -794,13 +722,13 @@ Format documentation in Markdown with clear examples and screenshots.
 
 ## Estimated Timeline
 
-**Total Development Time: ~30 hours**
+**Total Development Time: ~26.5 hours** (reduced from 30 hours by removing collaboration features)
 
 - Phase 1: 2 hours (Setup)
 - Phase 2: 4 hours (Core Engine)
 - Phase 3: 3 hours (UI Components)
-- Phase 4: 4 hours (Advanced Features)
-- Phase 5: 5 hours (Backend)
+- Phase 4: 2.5 hours (Advanced Features - without collaboration)
+- Phase 5: 3 hours (Backend - without collaboration)
 - Phase 6: 4 hours (Migration)
 - Phase 7: 3 hours (UX)
 - Phase 8: 3 hours (Testing)
