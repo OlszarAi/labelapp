@@ -1,286 +1,817 @@
-# 🎨 LABELSTUDIO - FABRIC.JS REBUILD PLAN
+# Fabric.js Label Editor Rebuild Plan
 
-## 📊 ARCHITEKTURA SYSTEMU
+## Overview
 
-### **GŁÓWNE KOMPONENTY:**
+Complete rebuild of the current DOM-based label editor to use Fabric.js for enhanced performance, better object manipulation, and modern development patterns. This plan is inspired by the adrianhajdin/figma_clone repository and adapts its best practices for our label design needs.
 
-1. **FabricCanvas Engine** - Główny silnik renderowania
-2. **LayerManager** - System warstw jak w Figmie
-3. **NodeEditor** - Edytor nodów do dynamicznych danych
-4. **TemplateSystem** - System szablonów i komponentów
-5. **AssetManager** - Zarządzanie zasobami (fonty, obrazy, ikony)
-6. **ExportEngine** - Eksport do PDF/PNG/SVG z wysoką jakością
+## Current State Analysis
 
-### **STACK TECHNOLOGICZNY:**
+### Existing DOM-Based Editor Issues
+- Manual drag/drop implementation (1047+ lines in LabelEditor.tsx)
+- Complex zoom and pan logic with transform calculations
+- No native undo/redo functionality
+- Limited object manipulation capabilities
+- Performance issues with large numbers of elements
+- Difficult to maintain and extend
 
-```typescript
-// Core Libraries
-- Fabric.js v6.x - Canvas rendering engine
-- Konva.js - Additional 2D graphics capabilities
-- React Flow - Node-based data flow
-- Framer Motion - Smooth animations
+### Fabric.js Benefits
+- Native object manipulation (drag, resize, rotate)
+- Built-in undo/redo system
+- Superior canvas performance
+- Better event handling
+- Extensible object system
+- Real-time collaboration support
 
-// State Management
-- Zustand - Modern state management
-- React Query - Server state management
-- Immer - Immutable state updates
+## Architecture Overview
 
-// UI Components
-- Radix UI - Accessible components
-- React Hook Form - Form management
-- React DnD - Drag and drop
-- React Virtual - Virtualized lists
-
-// Styling & Icons
-- Tailwind CSS + HeadlessUI
-- Lucide React - Modern icons
-- React Color - Color pickers
-
-// Utilities
-- React Use - Useful hooks
-- Lodash/Ramda - Utility functions
-- Date-fns - Date manipulation
-- Zod - Runtime validation
+### Frontend Structure
+```
+src/
+├── components/
+│   ├── fabric-editor/
+│   │   ├── FabricCanvas.tsx          # Main canvas component
+│   │   ├── Toolbar.tsx               # Tool selection
+│   │   ├── PropertiesPanel.tsx       # Object properties
+│   │   ├── LayersPanel.tsx           # Object layers
+│   │   └── ElementLibrary.tsx        # Predefined elements
+│   ├── shared/
+│   │   ├── Cursor.tsx                # Custom cursor
+│   │   ├── CursorChat.tsx            # Collaborative cursor chat
+│   │   └── Avatar.tsx                # User avatars
+│   └── ui/
+│       ├── Button.tsx
+│       ├── Input.tsx
+│       └── Select.tsx
+├── hooks/
+│   ├── useFabricCanvas.ts            # Canvas management
+│   ├── useKeyboardShortcuts.ts       # Shortcuts handler
+│   ├── useCollaboration.ts           # Real-time features
+│   └── useCanvasHistory.ts           # Undo/redo system
+├── lib/
+│   ├── fabric-utils.ts               # Fabric.js utilities
+│   ├── canvas-objects.ts             # Custom object types
+│   └── collaboration.ts              # Collaboration logic
+└── types/
+    ├── fabric.ts                     # Fabric.js type extensions
+    └── canvas.ts                     # Canvas-specific types
 ```
 
-## 🎯 NOWE FUNKCJONALNOŚCI
-
-### **1. ZAAWANSOWANY CANVAS**
-- Multi-layer support (warstwy)
-- Object grouping (grupowanie)
-- Smart guides (inteligentne prowadnice)
-- Snap to grid/objects
-- Real-time collaboration
-- Infinite canvas
-- Performance optimization
-
-### **2. DYNAMICZNE ELEMENTY**
-- Data-driven text fields
-- QR/Barcode generator z preview
-- Charts & graphs
-- Dynamic images
-- Variable text (mail merge)
-- Conditional rendering
-
-### **3. TEMPLATES & COMPONENTS**
-- Reusable components
-- Template library
-- Style systems
-- Design tokens
-- Brand guidelines enforcement
-
-### **4. ADVANCED TOOLS**
-- Vector graphics editor
-- Image filters & effects
-- Typography engine
-- Color palette manager
-- Asset library
-- Version control
-
-### **5. EXPORT & INTEGRATION**
-- High-quality PDF export
-- Print-ready files
-- API integrations
-- Batch processing
-- Cloud storage sync
-
-## 🔄 MIGRATION STRATEGY
-
-### **Phase 1: Core Foundation**
-1. Setup new Fabric.js canvas system
-2. Migrate basic elements (text, shapes, QR)
-3. Implement layer management
-4. Basic tools (select, move, resize)
-
-### **Phase 2: Advanced Features**
-1. Vector graphics support
-2. Advanced typography
-3. Image handling & filters
-4. Template system
-5. Asset management
-
-### **Phase 3: Professional Tools**
-1. Collaboration features
-2. Version control
-3. Advanced export options
-4. API integrations
-5. Performance optimizations
-
-### **Phase 4: AI & Automation**
-1. AI-powered design suggestions
-2. Auto-layout capabilities
-3. Smart content generation
-4. Design system enforcement
-5. Accessibility checker
-
-## 🎨 UI/UX REDESIGN
-
-### **LAYOUT INSPIRATION:**
-- **Figma-style** left panel (tools)
-- **Canva-style** right panel (properties)
-- **Adobe-style** top toolbar
-- **Professional** bottom status bar
-- **Floating** mini-toolbars for context
-
-### **DARK/LIGHT THEMES:**
-- Professional dark theme (default)
-- Clean light theme
-- High contrast accessibility
-- Custom brand themes
-
-### **RESPONSIVE DESIGN:**
-- Desktop-first approach
-- Tablet optimization
-- Mobile viewer (read-only)
-- Progressive Web App (PWA)
-
-## 📦 NEW BACKEND SCHEMA
-
-### **Enhanced Database Structure:**
-
-```sql
--- Projects with enhanced metadata
-CREATE TABLE projects (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  name VARCHAR(255) NOT NULL,
-  description TEXT,
-  thumbnail TEXT, -- Base64 or URL
-  color_scheme JSONB, -- Brand colors
-  template_id UUID, -- Reference to template
-  settings JSONB DEFAULT '{}', -- Project settings
-  created_at TIMESTAMP DEFAULT NOW(),
-  updated_at TIMESTAMP DEFAULT NOW(),
-  user_id UUID REFERENCES users(id)
-);
-
--- Enhanced labels with Fabric.js data
-CREATE TABLE labels (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  name VARCHAR(255) NOT NULL,
-  width FLOAT NOT NULL,
-  height FLOAT NOT NULL,
-  unit VARCHAR(10) DEFAULT 'mm',
-  
-  -- Fabric.js specific data
-  canvas_data JSONB NOT NULL DEFAULT '{}', -- Full Fabric.js state
-  thumbnail TEXT, -- Generated preview
-  version INTEGER DEFAULT 1,
-  
-  -- Metadata
-  project_id UUID REFERENCES projects(id),
-  template_id UUID, -- Reference to template
-  tags TEXT[], -- Searchable tags
-  settings JSONB DEFAULT '{}',
-  
-  created_at TIMESTAMP DEFAULT NOW(),
-  updated_at TIMESTAMP DEFAULT NOW()
-);
-
--- Assets management
-CREATE TABLE assets (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  name VARCHAR(255) NOT NULL,
-  type VARCHAR(50) NOT NULL, -- 'image', 'font', 'icon', 'vector'
-  file_url TEXT NOT NULL,
-  file_size INTEGER,
-  mime_type VARCHAR(100),
-  metadata JSONB DEFAULT '{}', -- Dimensions, etc.
-  project_id UUID REFERENCES projects(id),
-  created_at TIMESTAMP DEFAULT NOW()
-);
-
--- Templates system
-CREATE TABLE templates (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  name VARCHAR(255) NOT NULL,
-  description TEXT,
-  category VARCHAR(100),
-  thumbnail TEXT,
-  canvas_data JSONB NOT NULL,
-  is_public BOOLEAN DEFAULT false,
-  user_id UUID REFERENCES users(id),
-  created_at TIMESTAMP DEFAULT NOW()
-);
-
--- Version history
-CREATE TABLE label_versions (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  label_id UUID REFERENCES labels(id) ON DELETE CASCADE,
-  version_number INTEGER NOT NULL,
-  canvas_data JSONB NOT NULL,
-  comment TEXT,
-  created_at TIMESTAMP DEFAULT NOW(),
-  created_by UUID REFERENCES users(id)
-);
+### Backend Structure
+```
+src/
+├── models/
+│   ├── FabricCanvas.ts               # New canvas model
+│   ├── FabricObject.ts               # Canvas objects
+│   └── CanvasHistory.ts              # History/versions
+├── controllers/
+│   ├── fabricCanvasController.ts     # Canvas CRUD
+│   ├── collaborationController.ts    # Real-time sync
+│   └── migrationController.ts        # Migration from old format
+├── services/
+│   ├── canvasSerializer.ts           # Canvas serialization
+│   ├── collaborationService.ts       # WebSocket handling
+│   └── migrationService.ts           # Data migration
+└── routes/
+    ├── fabricCanvas.ts
+    ├── collaboration.ts
+    └── migration.ts
 ```
 
-## 🎯 IMPLEMENTATION ROADMAP
+## Implementation Phases
 
-### **WEEK 1-2: Foundation**
-- [ ] Setup new Fabric.js system
-- [ ] Create basic canvas component
-- [ ] Implement layer management
-- [ ] Basic shape tools
+---
 
-### **WEEK 3-4: Core Features**
-- [ ] Text editing with rich formatting
-- [ ] QR/Barcode integration
-- [ ] Image handling
-- [ ] Asset management
+## Phase 1: Project Setup & Dependencies (2 hours)
 
-### **WEEK 5-6: Advanced Tools**
-- [ ] Vector graphics support
-- [ ] Advanced typography
-- [ ] Template system
-- [ ] Export functionality
+### Task 1.1: Install Fabric.js Dependencies
+**Estimated Time:** 30 minutes
 
-### **WEEK 7-8: Polish & Integration**
-- [ ] Performance optimization
-- [ ] Backend integration
-- [ ] Testing & debugging
-- [ ] Documentation
+**Prompt:**
+```
+Install and configure Fabric.js dependencies for the label editor rebuild:
 
-## 🔧 DEVELOPMENT APPROACH
+Frontend packages:
+- fabric: ^5.3.0
+- @types/fabric: ^5.3.0
+- uuid: ^9.0.0
+- @types/uuid: ^9.0.0
+- socket.io-client: ^4.7.0 (for real-time collaboration)
 
-1. **Incremental Migration**: Build alongside existing system
-2. **Feature Parity**: Ensure all current features work
-3. **Enhanced Capabilities**: Add advanced features
-4. **User Testing**: Continuous feedback loop
-5. **Performance Focus**: Optimize for large designs
+Backend packages:
+- socket.io: ^4.7.0
+- uuid: ^9.0.0
 
-## 🎨 DESIGN SYSTEM
-
-### **Color Palette:**
-```css
-/* Professional Dark Theme */
---bg-primary: #0a0a0a;
---bg-secondary: #171717;
---bg-tertiary: #262626;
---accent-primary: #3b82f6;
---accent-secondary: #8b5cf6;
---text-primary: #ffffff;
---text-secondary: #a3a3a3;
-
-/* Clean Light Theme */
---bg-primary: #ffffff;
---bg-secondary: #f8fafc;
---bg-tertiary: #f1f5f9;
---accent-primary: #2563eb;
---accent-secondary: #7c3aed;
---text-primary: #0f172a;
---text-secondary: #64748b;
+Update package.json files and ensure TypeScript configurations support Fabric.js types.
 ```
 
-### **Typography Scale:**
-```css
---text-xs: 0.75rem;    /* 12px */
---text-sm: 0.875rem;   /* 14px */
---text-base: 1rem;     /* 16px */
---text-lg: 1.125rem;   /* 18px */
---text-xl: 1.25rem;    /* 20px */
---text-2xl: 1.5rem;    /* 24px */
---text-3xl: 1.875rem;  /* 30px */
+### Task 1.2: Create Base Fabric Canvas Component
+**Estimated Time:** 1 hour
+
+**Prompt:**
+```
+Create a basic Fabric.js canvas component at src/components/fabric-editor/FabricCanvas.tsx:
+
+Requirements:
+- Initialize Fabric.js canvas with proper dimensions
+- Handle canvas mounting/unmounting
+- Basic zoom and pan functionality
+- Canvas background with grid (optional)
+- Proper TypeScript typing
+- Canvas resize handling
+- Basic object selection styling
+
+Reference the current LabelEditor.tsx zoom and pan logic but implement using Fabric.js native methods.
+```
+
+### Task 1.3: Setup Fabric Types and Utilities
+**Estimated Time:** 30 minutes
+
+**Prompt:**
+```
+Create TypeScript definitions and utility functions:
+
+Files to create:
+1. src/types/fabric.ts - Extend Fabric.js types for our needs
+2. src/types/canvas.ts - Canvas-specific interfaces
+3. src/lib/fabric-utils.ts - Common Fabric.js helper functions
+
+Include types for:
+- Custom object properties (id, metadata, locked state)
+- Canvas state interface
+- Tool types (select, text, rectangle, circle, etc.)
+- Collaboration types (cursor position, user info)
+
+Utility functions for:
+- Object serialization/deserialization
+- Canvas state management
+- Coordinate transformations
 ```
 
 ---
 
+## Phase 2: Core Canvas Engine (4 hours)
+
+### Task 2.1: Canvas Management Hook
+**Estimated Time:** 1.5 hours
+
+**Prompt:**
+```
+Create src/hooks/useFabricCanvas.ts hook for canvas state management:
+
+Features:
+- Canvas initialization and cleanup
+- Object creation methods (text, shapes, images)
+- Object selection and deselection
+- Canvas zoom and pan with limits
+- Canvas size management
+- Object deletion and duplication
+- Canvas serialization/deserialization
+
+The hook should return:
+- canvas instance
+- selected objects
+- zoom level
+- canvas dimensions
+- methods for object manipulation
+- canvas state (loading, error, etc.)
+
+Reference current LabelEditor.tsx methods but adapt for Fabric.js patterns.
+```
+
+### Task 2.2: Keyboard Shortcuts System
+**Estimated Time:** 1 hour
+
+**Prompt:**
+```
+Create src/hooks/useKeyboardShortcuts.ts for keyboard handling:
+
+Shortcuts to implement:
+- Ctrl+Z/Cmd+Z: Undo
+- Ctrl+Y/Cmd+Y: Redo
+- Delete/Backspace: Delete selected objects
+- Ctrl+C/Cmd+C: Copy
+- Ctrl+V/Cmd+V: Paste
+- Ctrl+D/Cmd+D: Duplicate
+- Ctrl+A/Cmd+A: Select all
+- Escape: Deselect all
+- Arrow keys: Move selected objects
+- Ctrl+Plus/Minus: Zoom in/out
+- Space+drag: Pan canvas
+
+The hook should:
+- Prevent default browser behavior appropriately
+- Handle multiple object selection
+- Work with canvas focus state
+- Be easily extensible for new shortcuts
+```
+
+### Task 2.3: Canvas History System (Undo/Redo)
+**Estimated Time:** 1.5 hours
+
+**Prompt:**
+```
+Create src/hooks/useCanvasHistory.ts for undo/redo functionality:
+
+Features:
+- Track canvas state changes
+- Maintain history stack with size limits
+- Undo/redo operations
+- History compression for performance
+- Ignore minor changes (cursor movement, selection)
+- Clear history when needed
+
+Implementation details:
+- Use Fabric.js canvas serialization
+- Debounce state captures
+- Handle large canvas states efficiently
+- Integrate with keyboard shortcuts
+- Provide history metadata (action type, timestamp)
+
+The hook should work seamlessly with object modifications, additions, and deletions.
+```
+
+---
+
+## Phase 3: UI Components & Panels (3 hours)
+
+### Task 3.1: Toolbar Component
+**Estimated Time:** 1 hour
+
+**Prompt:**
+```
+Create src/components/fabric-editor/Toolbar.tsx with tool selection:
+
+Tools to include:
+- Select tool (default)
+- Text tool
+- Rectangle tool
+- Circle/Ellipse tool
+- Line tool
+- Freehand drawing (if needed)
+- Image upload tool
+- Zoom controls
+
+Features:
+- Visual tool selection state
+- Tool-specific cursors
+- Keyboard shortcuts display
+- Responsive design
+- Icon-based interface with tooltips
+
+Style similar to modern design tools (Figma/Sketch) with clean, minimal interface.
+```
+
+### Task 3.2: Properties Panel
+**Estimated Time:** 1.5 hours
+
+**Prompt:**
+```
+Create src/components/fabric-editor/PropertiesPanel.tsx for object properties:
+
+Properties to edit:
+- Position (x, y coordinates)
+- Size (width, height with aspect ratio lock)
+- Rotation angle
+- Colors (fill, stroke)
+- Stroke width and style
+- Opacity/transparency
+- Text properties (font, size, alignment)
+- Layer order (bring to front/back)
+- Lock/unlock objects
+
+Features:
+- Different panels for different object types
+- Real-time property updates
+- Input validation and constraints
+- Color picker integration
+- Numeric input with units
+- Property reset options
+
+Show/hide based on current selection, with smooth transitions.
+```
+
+### Task 3.3: Layers Panel
+**Estimated Time:** 30 minutes
+
+**Prompt:**
+```
+Create src/components/fabric-editor/LayersPanel.tsx for object management:
+
+Features:
+- List all canvas objects in hierarchical order
+- Drag and drop to reorder layers
+- Show/hide objects (visibility toggle)
+- Lock/unlock objects
+- Object renaming
+- Object type icons
+- Selection highlighting
+
+UI should be similar to layer panels in design software with:
+- Compact list design
+- Clear visual hierarchy
+- Easy interaction patterns
+- Smooth animations for reordering
+```
+
+---
+
+## Phase 4: Advanced Features (4 hours)
+
+### Task 4.1: Custom Fabric Objects
+**Estimated Time:** 2 hours
+
+**Prompt:**
+```
+Create src/lib/canvas-objects.ts with custom Fabric.js object types:
+
+Custom objects needed:
+1. LabelText - Enhanced text with label-specific properties
+2. LabelImage - Image handling with constraints
+3. LabelShape - Custom shapes for labels (arrows, symbols)
+4. TemplateGroup - Grouped objects that move together
+
+Each custom object should:
+- Extend appropriate Fabric.js base classes
+- Include custom properties (id, metadata, constraints)
+- Have custom serialization methods
+- Support label-specific behaviors
+- Include validation logic
+
+Also create factory functions for easy object creation and registration with Fabric.js.
+```
+
+### Task 4.2: Real-time Collaboration Setup
+**Estimated Time:** 1.5 hours
+
+**Prompt:**
+```
+Create src/hooks/useCollaboration.ts for real-time features:
+
+Features:
+- User cursor tracking and display
+- Real-time canvas synchronization
+- User presence indicators
+- Conflict resolution for simultaneous edits
+- Connection state management
+
+Components needed:
+- src/components/shared/Cursor.tsx - Custom cursor display
+- src/components/shared/CursorChat.tsx - Cursor chat messages
+- src/components/shared/Avatar.tsx - User avatars
+
+The system should:
+- Use WebSocket for real-time communication
+- Handle connection drops gracefully
+- Implement operational transformation for conflicts
+- Show user actions (selection, typing, etc.)
+- Maintain performance with multiple users
+```
+
+### Task 4.3: Canvas Export and Import
+**Estimated Time:** 30 minutes
+
+**Prompt:**
+```
+Create canvas export/import functionality in src/lib/fabric-utils.ts:
+
+Export formats:
+- JSON (for saving/loading)
+- PNG/JPEG (for image export)
+- SVG (for vector export)
+- PDF (for printing)
+
+Import formats:
+- JSON (restore canvas state)
+- Images (PNG, JPEG, SVG)
+- Legacy format migration
+
+Features:
+- High-quality exports with custom DPI
+- Preserve all object properties
+- Handle large canvas exports
+- Progress indicators for large operations
+- Error handling and validation
+```
+
+---
+
+## Phase 5: Backend Integration (5 hours)
+
+### Task 5.1: New Database Models
+**Estimated Time:** 1 hour
+
+**Prompt:**
+```
+Create new Prisma models in prisma/schema.prisma for Fabric.js support:
+
+Models needed:
+1. FabricCanvas
+   - id, projectId, labelId
+   - canvasData (JSON)
+   - version, createdAt, updatedAt
+   - width, height, backgroundColor
+
+2. FabricObject
+   - id, canvasId
+   - objectData (JSON)
+   - objectType, zIndex
+   - createdAt, updatedAt
+
+3. CanvasHistory
+   - id, canvasId, userId
+   - snapshot (JSON)
+   - action, timestamp
+
+4. CollaborationSession
+   - id, canvasId, userId
+   - isActive, lastSeen
+   - cursorPosition (JSON)
+
+Keep existing models unchanged for backward compatibility.
+```
+
+### Task 5.2: Fabric Canvas Controller
+**Estimated Time:** 2 hours
+
+**Prompt:**
+```
+Create src/controllers/fabricCanvasController.ts with endpoints:
+
+Endpoints:
+- POST /api/fabric/canvas - Create new canvas
+- GET /api/fabric/canvas/:id - Get canvas data
+- PUT /api/fabric/canvas/:id - Update canvas
+- DELETE /api/fabric/canvas/:id - Delete canvas
+- GET /api/fabric/canvas/:id/history - Get canvas history
+- POST /api/fabric/canvas/:id/restore/:versionId - Restore version
+
+Features:
+- Canvas data validation
+- Version management
+- Automatic history snapshots
+- Performance optimizations for large canvases
+- Error handling and logging
+- Access control and permissions
+```
+
+### Task 5.3: Collaboration WebSocket Service
+**Estimated Time:** 2 hours
+
+**Prompt:**
+```
+Create src/services/collaborationService.ts for real-time features:
+
+WebSocket events:
+- canvas-join/leave - User joins/leaves canvas
+- object-modified - Object changes
+- cursor-moved - Cursor position updates
+- user-typing - Text input events
+- canvas-saved - Save notifications
+
+Features:
+- Room-based collaboration (per canvas)
+- User authentication and authorization
+- Conflict resolution logic
+- Message queuing and delivery guarantees
+- Performance monitoring
+- Connection management
+
+Integrate with existing authentication system and maintain user sessions.
+```
+
+---
+
+## Phase 6: Canvas Features & Migration (4 hours)
+
+### Task 6.1: Data Migration System
+**Estimated Time:** 2 hours
+
+**Prompt:**
+```
+Create src/services/migrationService.ts to migrate existing labels:
+
+Migration tasks:
+1. Analyze current DOM-based label structure
+2. Convert elements to Fabric.js objects
+3. Preserve positioning, styling, and properties
+4. Handle edge cases and validation
+5. Create rollback mechanisms
+
+Create migration endpoints:
+- POST /api/migration/analyze/:labelId - Analyze migration needs
+- POST /api/migration/migrate/:labelId - Perform migration
+- POST /api/migration/rollback/:labelId - Rollback migration
+- GET /api/migration/status/:labelId - Check migration status
+
+The migration should be:
+- Non-destructive (keep original data)
+- Resumable if interrupted
+- Well-logged for debugging
+- Testable with validation
+```
+
+### Task 6.2: Advanced Canvas Features
+**Estimated Time:** 1.5 hours
+
+**Prompt:**
+```
+Implement advanced canvas features in existing components:
+
+Features to add:
+1. Grid and snap functionality
+   - Configurable grid size
+   - Snap to grid toggle
+   - Smart guides for alignment
+
+2. Image handling improvements
+   - Drag and drop image uploads
+   - Image cropping and filters
+   - Background image support
+
+3. Text enhancements
+   - Rich text formatting
+   - Font management
+   - Text along paths
+
+4. Selection improvements
+   - Multi-select with bounding box
+   - Group/ungroup operations
+   - Alignment tools
+
+Integrate these features into existing toolbar and properties panels.
+```
+
+### Task 6.3: Performance Optimization
+**Estimated Time:** 30 minutes
+
+**Prompt:**
+```
+Optimize canvas performance for large labels:
+
+Optimizations:
+1. Object virtualization for large canvas
+2. Lazy loading of images and complex objects
+3. Canvas rendering optimizations
+4. Memory management for history
+5. Debounced save operations
+
+Performance monitoring:
+- Canvas rendering time tracking
+- Memory usage monitoring
+- User interaction responsiveness
+- Network request optimization
+
+Implement performance budgets and warnings for large canvases.
+```
+
+---
+
+## Phase 7: UX Enhancements (3 hours)
+
+### Task 7.1: Responsive Design & Mobile Support
+**Estimated Time:** 1.5 hours
+
+**Prompt:**
+```
+Make the Fabric.js editor responsive and mobile-friendly:
+
+Responsive features:
+- Collapsible panels for small screens
+- Touch-friendly controls and interactions
+- Adaptive toolbar layout
+- Mobile-optimized zoom and pan
+- Touch gestures for multi-select
+
+Mobile considerations:
+- Touch event handling for Fabric.js
+- Virtual keyboard accommodation
+- Simplified UI for mobile
+- Performance optimization for mobile devices
+
+Test on various screen sizes and devices.
+```
+
+### Task 7.2: Accessibility & Usability
+**Estimated Time:** 1 hour
+
+**Prompt:**
+```
+Implement accessibility features:
+
+Accessibility features:
+- Keyboard navigation for all tools
+- Screen reader support with ARIA labels
+- High contrast mode support
+- Focus indicators and management
+- Alternative text for canvas objects
+
+Usability improvements:
+- Loading states and progress indicators
+- Error messages and recovery options
+- Tooltips and help text
+- Onboarding for new users
+- Contextual help system
+
+Follow WCAG 2.1 AA guidelines.
+```
+
+### Task 7.3: Animation & Polish
+**Estimated Time:** 30 minutes
+
+**Prompt:**
+```
+Add smooth animations and visual polish:
+
+Animations:
+- Smooth transitions for panel opening/closing
+- Object creation and deletion animations
+- Selection feedback animations
+- Loading animations
+- Toast notifications for actions
+
+Visual polish:
+- Consistent spacing and typography
+- Professional color scheme
+- Icon consistency
+- Hover states and interactions
+- Visual feedback for all actions
+
+Keep animations subtle and performance-conscious.
+```
+
+---
+
+## Phase 8: Testing & Quality Assurance (3 hours)
+
+### Task 8.1: Unit and Integration Tests
+**Estimated Time:** 2 hours
+
+**Prompt:**
+```
+Create comprehensive test suite:
+
+Test coverage needed:
+1. Canvas hook tests (useFabricCanvas)
+2. Object creation and manipulation tests
+3. History system tests (undo/redo)
+4. Collaboration features tests
+5. Migration logic tests
+6. API endpoint tests
+
+Testing tools:
+- Jest for unit tests
+- React Testing Library for component tests
+- Cypress for E2E tests
+- WebSocket testing for collaboration
+
+Create test utilities for:
+- Mock canvas setup
+- Test data generation
+- Fabric.js object mocking
+- Collaboration simulation
+```
+
+### Task 8.2: Performance Testing & Optimization
+**Estimated Time:** 1 hour
+
+**Prompt:**
+```
+Performance testing and optimization:
+
+Performance tests:
+- Large canvas rendering performance
+- Memory usage with many objects
+- Collaboration performance with multiple users
+- Mobile performance testing
+- Network request optimization
+
+Optimization tasks:
+- Bundle size analysis and reduction
+- Canvas rendering optimization
+- Memory leak detection and fixes
+- API response time optimization
+- Image loading and caching improvements
+
+Set up performance monitoring and alerting.
+```
+
+---
+
+## Phase 9: Deployment & Documentation (2 hours)
+
+### Task 9.1: Production Deployment
+**Estimated Time:** 1 hour
+
+**Prompt:**
+```
+Prepare for production deployment:
+
+Deployment tasks:
+1. Environment configuration for production
+2. Database migration scripts
+3. Docker containerization updates
+4. CI/CD pipeline modifications
+5. Monitoring and logging setup
+
+Production considerations:
+- WebSocket scaling and load balancing
+- Canvas data backup strategies
+- Performance monitoring setup
+- Error tracking and alerting
+- Rollback procedures
+
+Create deployment checklist and runbook.
+```
+
+### Task 9.2: Documentation & User Guide
+**Estimated Time:** 1 hour
+
+**Prompt:**
+```
+Create comprehensive documentation:
+
+Documentation needed:
+1. Technical documentation
+   - Architecture overview
+   - API documentation
+   - Component documentation
+   - Deployment guide
+
+2. User documentation
+   - Feature overview
+   - Keyboard shortcuts reference
+   - Migration guide from old editor
+   - Troubleshooting guide
+
+3. Developer documentation
+   - Contributing guidelines
+   - Code style guide
+   - Testing procedures
+   - Extension points
+
+Format documentation in Markdown with clear examples and screenshots.
+```
+
+---
+
+## Migration Strategy
+
+### Parallel Implementation Approach
+1. **Phase 1-4**: Build new Fabric.js editor alongside existing DOM editor
+2. **Phase 5**: Create backend support while maintaining existing API
+3. **Phase 6**: Implement migration tools and test with sample data
+4. **Phase 7-8**: Polish and test extensively
+5. **Phase 9**: Gradual rollout with fallback to old editor
+
+### Data Migration Plan
+1. **Analysis Phase**: Identify all existing label structures
+2. **Conversion Phase**: Convert DOM elements to Fabric.js objects
+3. **Validation Phase**: Ensure visual and functional parity
+4. **Testing Phase**: Extensive testing with real user data
+5. **Rollout Phase**: Gradual migration with user consent
+
+### Risk Mitigation
+- Keep existing editor functional during transition
+- Implement comprehensive rollback mechanisms
+- Extensive testing with real user data
+- Gradual feature rollout with user feedback
+- Performance monitoring and optimization
+
+## Success Metrics
+
+### Technical Metrics
+- Canvas rendering performance (target: <100ms for 1000 objects)
+- Memory usage optimization (target: 50% reduction vs DOM approach)
+- Bundle size management (target: <500KB added for Fabric.js)
+- Test coverage (target: >90% for critical paths)
+
+### User Experience Metrics
+- Migration success rate (target: >99%)
+- User satisfaction with new features
+- Task completion time improvements
+- Error rate reduction
+- Mobile usability improvements
+
+## Estimated Timeline
+
+**Total Development Time: ~30 hours**
+
+- Phase 1: 2 hours (Setup)
+- Phase 2: 4 hours (Core Engine)
+- Phase 3: 3 hours (UI Components)
+- Phase 4: 4 hours (Advanced Features)
+- Phase 5: 5 hours (Backend)
+- Phase 6: 4 hours (Migration)
+- Phase 7: 3 hours (UX)
+- Phase 8: 3 hours (Testing)
+- Phase 9: 2 hours (Deployment)
+
+**Recommended Sprint Structure:**
+- Sprint 1: Phases 1-2 (Foundation)
+- Sprint 2: Phases 3-4 (Core Features)
+- Sprint 3: Phases 5-6 (Backend & Migration)
+- Sprint 4: Phases 7-9 (Polish & Deploy)
+
+---
+
+*This plan provides a comprehensive roadmap for rebuilding the label editor with Fabric.js while maintaining backward compatibility and ensuring a smooth transition for existing users.*
