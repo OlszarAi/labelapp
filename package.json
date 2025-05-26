@@ -11,15 +11,18 @@
   "dependencies": {
     "@heroicons/react": "^2.2.0",
     "@types/fabric": "^5.3.10",
+    "@types/qrcode": "^1.5.5",
     "@types/uuid": "^10.0.0",
     "fabric": "^5.5.2",
     "framer-motion": "^12.12.1",
     "motion": "^12.10.0",
     "next": "15.3.1",
     "preline": "^3.0.1",
+    "qrcode": "^1.5.4",
     "qrcode.react": "^4.2.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
+    "react-resizable-panels": "^3.0.2",
     "react-select": "^5.10.1",
     "react-toastify": "^11.0.5",
     "uuid": "^11.1.0"

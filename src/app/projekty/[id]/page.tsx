@@ -16,7 +16,7 @@ const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
 export default function ProjectDetailsPage() {
   const params = useParams();
   const router = useRouter();
-  const projectId = params.id as string;
+  const projectId = params?.id as string;
   
   const [project, setProject] = useState<SavedProject | null>(null);
   const [labels, setLabels] = useState<Label[]>([]);

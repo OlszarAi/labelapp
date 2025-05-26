@@ -168,16 +168,32 @@ export interface CustomObjectProps {
   locked?: boolean;
   layer?: number;
   elementType?: ElementType;
+  createdAt?: string;
+  modifiedAt?: string;
   
   // Barcode/QR specific
   barcodeValue?: string;
   barcodeType?: string;
+  qrCodeValue?: string;
+  qrCodeLevel?: 'L' | 'M' | 'Q' | 'H';
   
   // Text specific
   fontFamily?: string;
   fontSize?: number;
   fontWeight?: string | number;
   fontStyle?: string;
+  textAlign?: string;
+  lineHeight?: number;
+  charSpacing?: number;
+  placeholder?: string;
+  maxLength?: number;
+  autoResize?: boolean;
+  textCase?: string;
+  
+  // Image specific
+  originalSrc?: string;
+  altText?: string;
+  cropArea?: CropArea;
   
   // Position and size
   left?: number;
@@ -189,11 +205,23 @@ export interface CustomObjectProps {
   angle?: number;
   
   // Appearance
-  fill?: string;
+  fillColor?: string;
   stroke?: string;
   strokeWidth?: number;
+  strokeDashArray?: number[];
   opacity?: number;
   visible?: boolean;
+  borderRadius?: number;
+  shadowConfig?: fabric.Shadow;
+  
+  // Label-specific properties
+  labelRole?: 'title' | 'content' | 'decoration' | 'barcode' | 'qr';
+  constraints?: ObjectConstraints;
+  
+  // Animation properties
+  animationType?: AnimationType;
+  animationDuration?: number;
+  animationDelay?: number;
 }
 
 
@@ -204,11 +232,17 @@ export interface CustomCanvasJSON {
   version: string;
   canvasId: string;
   projectId: string;
+  labelId?: string;
   objects: CustomObjectJSON[];
-  background?: string | fabric.Pattern | fabric.Gradient;
-  backgroundImage?: fabric.Image;
+  backgroundConfig?: string; // Use different name to avoid conflict
+  backgroundImageConfig?: any; // Use different name to avoid conflict
   width: number;
   height: number;
+  units: 'px' | 'mm' | 'cm' | 'in';
+  dpi: number;
+  gridSize: number;
+  snapToGrid: boolean;
+  showGrid: boolean;
   metadata?: Record<string, any>;
   created: string;
   modified: string;
@@ -226,6 +260,7 @@ export enum ElementType {
   POLYGON = 'polygon',
   IMAGE = 'image',
   QR_CODE = 'qr_code',
+  UUID = 'uuid',
   BARCODE = 'barcode',
   GROUP = 'group',
   PATH = 'path',
@@ -540,79 +575,6 @@ export interface ExtendedFabricObject {
 }
 
 /**
- * Bounding rectangle interface
- */
-export interface BoundingRect {
-  left: number;
-  top: number;
-  width: number;
-  height: number;
-}
-
-/**
- * Custom object properties for serialization
- */
-export interface CustomObjectProps {
-  id: string;
-  metadata?: Record<string, any>;
-  locked?: boolean;
-  layer?: number;
-  elementType?: ElementType;
-  createdAt?: string;
-  modifiedAt?: string;
-  labelRole?: 'title' | 'content' | 'decoration' | 'barcode' | 'qr';
-  constraints?: ObjectConstraints;
-  
-  // Barcode/QR specific
-  barcodeValue?: string;
-  barcodeTypeEnum?: BarcodeType; // Use different name to avoid conflict
-  qrCodeValue?: string;
-  qrCodeLevel?: 'L' | 'M' | 'Q' | 'H';
-  
-  // Text specific
-  fontFamily?: string;
-  fontSize?: number;
-  fontWeight?: string | number;
-  fontStyle?: string;
-  textAlign?: 'left' | 'center' | 'right' | 'justify';
-  lineHeight?: number;
-  charSpacing?: number;
-  placeholder?: string;
-  maxLength?: number;
-  autoResize?: boolean;
-  textCase?: 'normal' | 'uppercase' | 'lowercase' | 'capitalize';
-  
-  // Image specific
-  originalSrc?: string;
-  altText?: string;
-  cropArea?: CropArea;
-  
-  // Position and size
-  left?: number;
-  top?: number;
-  width?: number;
-  height?: number;
-  scaleX?: number;
-  scaleY?: number;
-  angle?: number;
-  
-  // Appearance
-  fillColor?: string; // Use different name to avoid conflict
-  stroke?: string;
-  strokeWidth?: number;
-  strokeDashArray?: number[];
-  opacity?: number;
-  visible?: boolean;
-  borderRadius?: number;
-  shadowConfig?: any; // Use any to avoid fabric.Shadow conflict
-  
-  // Animation
-  animationType?: AnimationType;
-  animationDuration?: number;
-  animationDelay?: number;
-}
-
-/**
  * Custom JSON format for objects
  */
 export interface CustomObjectJSON {
@@ -627,26 +589,15 @@ export interface CustomObjectJSON {
 }
 
 /**
- * Custom JSON format for canvas
+ * Bounding rectangle interface
  */
-export interface CustomCanvasJSON {
-  version: string;
-  canvasId: string;
-  projectId: string;
-  labelId?: string;
-  objects: CustomObjectJSON[];
-  backgroundConfig?: string; // Use different name to avoid conflict
-  backgroundImageConfig?: any; // Use different name to avoid conflict
+export interface BoundingRect {
+  left: number;
+  top: number;
   width: number;
   height: number;
-  units: 'px' | 'mm' | 'cm' | 'in';
-  dpi: number;
-  gridSize: number;
-  snapToGrid: boolean;
-  showGrid: boolean;
-  metadata?: Record<string, any>;
-  created: string;
-  modified: string;
+  right: number;
+  bottom: number;
 }
 
 /**
@@ -654,12 +605,15 @@ export interface CustomCanvasJSON {
  */
 export interface HistoryEntry {
   id: string;
+  timestamp: Date;
   action: HistoryActionType;
-  timestamp: number;
-  before?: CustomCanvasJSON;
-  after?: CustomCanvasJSON;
+  description: string;
+  canvasData: string;
   objectId?: string;
-  description?: string;
+  changes: {
+    before: Record<string, any>;
+    after: Record<string, any>;
+  };
 }
 
 /**
@@ -670,8 +624,9 @@ export interface LayerInfo {
   name: string;
   visible: boolean;
   locked: boolean;
+  opacity: number;
   order: number;
-  objects: string[]; // Object IDs
+  objects: string[];
 }
 
 /**
@@ -680,176 +635,83 @@ export interface LayerInfo {
 export interface BarcodeConfig {
   type: BarcodeType;
   value: string;
-  width?: number;
-  height?: number;
-  displayValue?: boolean;
-  fontSize?: number;
-  fontOptions?: string;
-  font?: string;
-  textAlign?: string;
-  textPosition?: string;
-  textMargin?: number;
-  background?: string;
-  lineColor?: string;
+  width: number;
+  height: number;
+  format: {
+    width?: number;
+    height?: number;
+    displayValue?: boolean;
+    text?: string;
+    fontOptions?: string;
+    font?: string;
+    textAlign?: string;
+    textPosition?: string;
+    textMargin?: number;
+    fontSize?: number;
+    background?: string;
+    lineColor?: string;
+    margin?: number;
+  };
 }
 
 /**
  * QR Code configuration
  */
 export interface QRCodeConfig {
-  value: string;
-  size?: number;
-  level?: 'L' | 'M' | 'Q' | 'H';
-  includeMargin?: boolean;
-  imageSettings?: {
-    src: string;
-    height: number;
-    width: number;
-    excavate: boolean;
-  };
-}
-
-/**
- * Editor state interface
- */
-export interface EditorState {
-  activeObject: fabric.Object | null;
-  selectedObjects: fabric.Object[];
-  tool: ToolType;
-  mode: CanvasMode;
-  zoom: number;
-  canvasSize: { width: number; height: number };
-  gridVisible: boolean;
-  snapToGrid: boolean;
-  gridSize: number;
-  isLoading: boolean;
-  hasUnsavedChanges: boolean;
-  lastSaved?: Date;
-}
-
-/**
- * Canvas settings interface
- */
-export interface CanvasSettings {
+  text: string;
   width: number;
   height: number;
-  backgroundColor: string;
-  gridSize: number;
-  snapToGrid: boolean;
-  showGrid: boolean;
+  colorDark: string;
+  colorLight: string;
+  correctLevel: 'L' | 'M' | 'Q' | 'H';
+  margin: number;
+  format: 'PNG' | 'SVG' | 'UTF8';
+}
+
+/**
+ * Canvas workspace settings
+ */
+export interface WorkspaceSettings {
+  width: number;
+  height: number;
   units: 'px' | 'mm' | 'cm' | 'in';
   dpi: number;
-  zoomLimits: {
-    min: number;
-    max: number;
-  };
-  panLimits?: {
-    left: number;
-    top: number;
-    right: number;
-    bottom: number;
-  };
-}
-
-/**
- * Snap settings interface
- */
-export interface SnapSettings {
+  backgroundColor: string;
+  showGrid: boolean;
+  gridSize: number;
   snapToGrid: boolean;
-  snapToObjects: boolean;
-  snapToCanvas: boolean;
-  snapTolerance: number;
-  showSnapLines: boolean;
-  snapLineColor: string;
+  showRulers: boolean;
+  rulerUnits: 'px' | 'mm' | 'cm' | 'in';
 }
 
 /**
- * Grid settings interface
+ * Ruler interface
  */
-export interface GridSettings {
-  size: number;
+export interface RulerInterface {
+  orientation: 'horizontal' | 'vertical';
+  length: number;
+  units: 'px' | 'mm' | 'cm' | 'in';
+  zoom: number;
+  offset: number;
+  visible: boolean;
+  color: string;
+  backgroundColor: string;
+  tickColor: string;
+  labelColor: string;
+  majorTickInterval: number;
+  minorTickInterval: number;
+}
+
+/**
+ * Grid interface
+ */
+export interface GridInterface {
   enabled: boolean;
+  size: number;
+  subdivisions: number;
   color: string;
   opacity: number;
-  subdivisions: number;
-}
-
-/**
- * Keyboard shortcuts mapping
- */
-export interface KeyboardShortcuts {
-  [key: string]: {
-    action: string;
-    description: string;
-    handler: () => void;
-  };
-}
-
-/**
- * Canvas events interface
- */
-export interface CanvasEvents {
-  onObjectAdded?: (e: fabric.IEvent) => void;
-  onObjectRemoved?: (e: fabric.IEvent) => void;
-  onObjectModified?: (e: fabric.IEvent) => void;
-  onSelectionCreated?: (e: fabric.IEvent) => void;
-  onSelectionUpdated?: (e: fabric.IEvent) => void;
-  onSelectionCleared?: (e: fabric.IEvent) => void;
-  onPathCreated?: (e: fabric.IEvent) => void;
-  onMouseDown?: (e: fabric.IEvent) => void;
-  onMouseMove?: (e: fabric.IEvent) => void;
-  onMouseUp?: (e: fabric.IEvent) => void;
-  onMouseWheel?: (e: fabric.IEvent) => void;
-}
-
-/**
- * Export options for different formats
- */
-export interface ExportOptions {
-  format: 'json' | 'png' | 'jpeg' | 'svg' | 'pdf';
-  quality?: number;
-  dpi?: number;
-  width?: number;
-  height?: number;
-  includeMetadata?: boolean;
-  compression?: boolean;
-  backgroundTransparent?: boolean;
-}
-
-/**
- * Import options for different formats
- */
-export interface ImportOptions {
-  preserveObjectIds?: boolean;
-  merge?: boolean;
-  position?: { x: number; y: number };
-  scale?: number;
-  validateObjects?: boolean;
-}
-
-/**
- * Object transformation interface
- */
-export interface ObjectTransformation {
-  x: number;
-  y: number;
-  scaleX: number;
-  scaleY: number;
-  rotation: number;
-  skewX?: number;
-  skewY?: number;
-}
-
-/**
- * Canvas viewport interface
- */
-export interface CanvasViewport {
-  zoom: number;
-  center: { x: number; y: number };
-  bounds: {
-    left: number;
-    top: number;
-    right: number;
-    bottom: number;
-  };
+  style: 'dots' | 'lines' | 'cross';
+  snapToGrid: boolean;
+  snapTolerance: number;
 }

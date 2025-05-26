@@ -18,9 +18,7 @@ import {
   ValidationResult,
   SerializedObject,
   BarcodeConfig,
-  QRCodeConfig,
-  ObjectTransformation,
-  CanvasViewport
+  QRCodeConfig
 } from '../types/fabric';
 import {
   CanvasDimensions,
@@ -234,7 +232,7 @@ export const objectUtils = {
       labelRole: (obj as any).labelRole,
       constraints: (obj as any).constraints,
       barcodeValue: (obj as any).barcodeValue,
-      barcodeTypeEnum: (obj as any).barcodeType,
+      barcodeType: (obj as any).barcodeType,
       qrCodeValue: (obj as any).qrCodeValue,
       qrCodeLevel: (obj as any).qrCodeLevel,
       fontFamily: obj.fontFamily,
@@ -400,13 +398,13 @@ export const objectUtils = {
   },
 
   /**
-   * Deserialize image from storage
+   * Deserialize image from stored data
    */
-  async deserializeImage(data: any): Promise<fabric.Image> {
+  async deserializeImage(imageData: any): Promise<fabric.Image> {
     return new Promise((resolve, reject) => {
-      fabric.Image.fromURL(data.src, (img) => {
+      fabric.Image.fromURL(imageData.src, (img) => {
         if (img) {
-          img.set(data);
+          img.set(imageData);
           resolve(img);
         } else {
           reject(new Error('Failed to deserialize image'));
@@ -416,7 +414,7 @@ export const objectUtils = {
   },
 
   /**
-   * Clone object
+   * Clone fabric object
    */
   async cloneObject(obj: fabric.Object): Promise<fabric.Object> {
     return new Promise((resolve) => {
@@ -438,36 +436,43 @@ export const objectUtils = {
   },
 
   /**
-   * Validate object
+   * Validate object properties
    */
   validateObject(obj: fabric.Object): ValidationResult {
     const errors: any[] = [];
     const warnings: any[] = [];
 
-    // Check required properties
-    if (!(obj as any).id) {
+    // Basic validations
+    if (!obj.width || obj.width <= 0) {
       errors.push({
-        field: 'id',
-        message: 'Object must have a unique ID',
+        field: 'width',
+        message: 'Width must be greater than 0',
         severity: 'error'
       });
     }
 
-    // Check bounds
+    if (!obj.height || obj.height <= 0) {
+      errors.push({
+        field: 'height',
+        message: 'Height must be greater than 0',
+        severity: 'error'
+      });
+    }
+
+    // Check if object is outside canvas bounds (warning)
     if (obj.left && obj.left < 0) {
       warnings.push({
         field: 'left',
-        message: 'Object is positioned outside canvas bounds',
-        suggestion: 'Move object to visible area'
+        message: 'Object extends beyond left canvas boundary',
+        suggestion: 'Move object to the right'
       });
     }
 
-    // Check dimensions
-    if (obj.width && obj.width <= 0) {
-      errors.push({
-        field: 'width',
-        message: 'Object width must be greater than 0',
-        severity: 'error'
+    if (obj.top && obj.top < 0) {
+      warnings.push({
+        field: 'top',
+        message: 'Object extends beyond top canvas boundary',
+        suggestion: 'Move object down'
       });
     }
 
@@ -479,193 +484,76 @@ export const objectUtils = {
   },
 
   /**
-   * Apply constraints to object
+   * Serialize object for storage
    */
-  applyConstraints(obj: fabric.Object, constraints: ObjectConstraints): void {
-    if (!constraints) return;
-
-    // Apply size constraints
-    if (constraints.minWidth && obj.width && obj.width < constraints.minWidth) {
-      obj.set('width', constraints.minWidth);
-    }
-    if (constraints.maxWidth && obj.width && obj.width > constraints.maxWidth) {
-      obj.set('width', constraints.maxWidth);
-    }
-    if (constraints.minHeight && obj.height && obj.height < constraints.minHeight) {
-      obj.set('height', constraints.minHeight);
-    }
-    if (constraints.maxHeight && obj.height && obj.height > constraints.maxHeight) {
-      obj.set('height', constraints.maxHeight);
-    }
-
-    // Apply movement constraints
-    obj.set({
-      lockMovementX: constraints.lockMovementX || false,
-      lockMovementY: constraints.lockMovementY || false,
-      lockRotation: constraints.lockRotation || false,
-      lockScalingX: constraints.lockScalingX || false,
-      lockScalingY: constraints.lockScalingY || false,
-      lockUniScaling: constraints.lockUniScaling || false
-    });
-
-    obj.setCoords();
+  serializeObject(obj: fabric.Object): SerializedObject {
+    const customProps = this.toCustomJSON(obj);
+    
+    return {
+      id: customProps.id,
+      type: obj.type || 'object',
+      elementType: customProps.elementType,
+      properties: customProps.fabricProps,
+      customProperties: customProps.customProps,
+      timestamp: new Date().toISOString(),
+      version: '1.0.0'
+    };
   },
 
   /**
-   * Get object display name
+   * Deserialize object from storage
+   */
+  async deserializeObject(data: SerializedObject): Promise<fabric.Object | null> {
+    const customJSON: CustomObjectJSON = {
+      id: data.id,
+      type: data.type,
+      elementType: data.elementType,
+      customProps: {
+        id: data.id,
+        ...data.customProperties
+      },
+      fabricProps: data.properties,
+      version: data.version,
+      created: data.timestamp,
+      modified: data.timestamp
+    };
+
+    return this.fromCustomJSON(customJSON);
+  },
+
+  /**
+   * Get display name for object
    */
   getDisplayName(obj: fabric.Object): string {
-    if ((obj as any).name) return (obj as any).name;
-    
     const elementType = (obj as any).elementType || this.getElementTypeFromObject(obj);
-    const id = (obj as any).id || 'unnamed';
+    const id = (obj as any).id || 'unknown';
     
+    // Create friendly display name based on type
     switch (elementType) {
       case ElementType.TEXT:
-        const text = (obj as fabric.Text).text;
-        return text && text.length > 20 ? `${text.substring(0, 20)}...` : text || 'Text';
+        const text = (obj as fabric.Text).text || 'Text';
+        return `Text: ${text.substring(0, 20)}${text.length > 20 ? '...' : ''}`;
+      case ElementType.RECTANGLE:
+        return 'Rectangle';
+      case ElementType.CIRCLE:
+        return 'Circle';
+      case ElementType.ELLIPSE:
+        return 'Ellipse';
+      case ElementType.LINE:
+        return 'Line';
       case ElementType.IMAGE:
         return 'Image';
+      case ElementType.QR_CODE:
+        const qrValue = (obj as any).qrCodeValue || 'QR Code';
+        return `QR: ${qrValue.substring(0, 15)}${qrValue.length > 15 ? '...' : ''}`;
+      case ElementType.BARCODE:
+        const barcodeValue = (obj as any).barcodeValue || 'Barcode';
+        return `Barcode: ${barcodeValue.substring(0, 15)}${barcodeValue.length > 15 ? '...' : ''}`;
+      case ElementType.GROUP:
+        return 'Group';
       default:
-        return `${elementType} ${id.substring(0, 8)}`;
+        return `${elementType} (${id.substring(0, 8)})`;
     }
-  }
-};
-
-/**
- * Coordinate transformation utilities
- */
-export const coordinateUtils = {
-  /**
-   * Convert canvas coordinates to screen coordinates
-   */
-  canvasToScreen(canvas: fabric.Canvas, point: { x: number; y: number }): { x: number; y: number } {
-    const zoom = canvas.getZoom();
-    const vpt = canvas.viewportTransform;
-    
-    return {
-      x: point.x * zoom + (vpt ? vpt[4] : 0),
-      y: point.y * zoom + (vpt ? vpt[5] : 0)
-    };
-  },
-
-  /**
-   * Convert screen coordinates to canvas coordinates
-   */
-  screenToCanvas(canvas: fabric.Canvas, point: { x: number; y: number }): { x: number; y: number } {
-    const zoom = canvas.getZoom();
-    const vpt = canvas.viewportTransform;
-    
-    return {
-      x: (point.x - (vpt ? vpt[4] : 0)) / zoom,
-      y: (point.y - (vpt ? vpt[5] : 0)) / zoom
-    };
-  },
-
-  /**
-   * Get object bounds in canvas coordinates
-   */
-  getObjectBounds(obj: fabric.Object): BoundingRect {
-    const bounds = obj.getBoundingRect();
-    return {
-      left: bounds.left || 0,
-      top: bounds.top || 0,
-      width: bounds.width || 0,
-      height: bounds.height || 0
-    };
-  },
-
-  /**
-   * Check if point is inside object
-   */
-  isPointInsideObject(obj: fabric.Object, point: { x: number; y: number }): boolean {
-    const bounds = this.getObjectBounds(obj);
-    return point.x >= bounds.left && 
-           point.x <= bounds.left + bounds.width &&
-           point.y >= bounds.top && 
-           point.y <= bounds.top + bounds.height;
-  },
-
-  /**
-   * Calculate distance between two points
-   */
-  distance(p1: { x: number; y: number }, p2: { x: number; y: number }): number {
-    const dx = p2.x - p1.x;
-    const dy = p2.y - p1.y;
-    return Math.sqrt(dx * dx + dy * dy);
-  },
-
-  /**
-   * Calculate angle between two points
-   */
-  angle(p1: { x: number; y: number }, p2: { x: number; y: number }): number {
-    const dx = p2.x - p1.x;
-    const dy = p2.y - p1.y;
-    return Math.atan2(dy, dx) * (180 / Math.PI);
-  },
-
-  /**
-   * Rotate point around center
-   */
-  rotatePoint(
-    point: { x: number; y: number }, 
-    center: { x: number; y: number }, 
-    angle: number
-  ): { x: number; y: number } {
-    const cos = Math.cos(angle * Math.PI / 180);
-    const sin = Math.sin(angle * Math.PI / 180);
-    
-    const dx = point.x - center.x;
-    const dy = point.y - center.y;
-    
-    return {
-      x: center.x + dx * cos - dy * sin,
-      y: center.y + dx * sin + dy * cos
-    };
-  },
-
-  /**
-   * Snap point to grid
-   */
-  snapToGrid(point: { x: number; y: number }, gridSize: number): { x: number; y: number } {
-    return {
-      x: Math.round(point.x / gridSize) * gridSize,
-      y: Math.round(point.y / gridSize) * gridSize
-    };
-  },
-
-  /**
-   * Snap point to object edges
-   */
-  snapToObjects(
-    point: { x: number; y: number }, 
-    objects: fabric.Object[], 
-    tolerance = 5
-  ): { x: number; y: number } {
-    let snappedPoint = { ...point };
-    
-    for (const obj of objects) {
-      const bounds = this.getObjectBounds(obj);
-      
-      // Snap to left edge
-      if (Math.abs(point.x - bounds.left) <= tolerance) {
-        snappedPoint.x = bounds.left;
-      }
-      // Snap to right edge
-      if (Math.abs(point.x - (bounds.left + bounds.width)) <= tolerance) {
-        snappedPoint.x = bounds.left + bounds.width;
-      }
-      // Snap to top edge
-      if (Math.abs(point.y - bounds.top) <= tolerance) {
-        snappedPoint.y = bounds.top;
-      }
-      // Snap to bottom edge
-      if (Math.abs(point.y - (bounds.top + bounds.height)) <= tolerance) {
-        snappedPoint.y = bounds.top + bounds.height;
-      }
-    }
-    
-    return snappedPoint;
   }
 };
 
@@ -677,17 +565,27 @@ export const exportUtils = {
    * Export canvas as PNG
    */
   exportToPNG(canvas: fabric.Canvas, options: ExportImageOptions = {}): string {
-    return canvas.toDataURL({
+    const defaultOptions = {
       format: 'png',
-      quality: options.quality || 1,
-      multiplier: options.multiplier || 1,
-      left: options.left,
-      top: options.top,
-      width: options.width,
-      height: options.height,
-      enableRetinaScaling: options.enableRetinaScaling !== false,
-      withoutTransform: options.withoutTransform || false,
-      withoutShadow: options.withoutShadow || false
+      quality: 1,
+      multiplier: 1,
+      enableRetinaScaling: false,
+      withoutTransform: false,
+      withoutShadow: false,
+      ...options
+    };
+
+    return canvas.toDataURL({
+      format: defaultOptions.format,
+      quality: defaultOptions.quality,
+      multiplier: defaultOptions.multiplier,
+      left: defaultOptions.left,
+      top: defaultOptions.top,
+      width: defaultOptions.width,
+      height: defaultOptions.height,
+      enableRetinaScaling: defaultOptions.enableRetinaScaling,
+      withoutTransform: defaultOptions.withoutTransform,
+      withoutShadow: defaultOptions.withoutShadow
     });
   },
 
@@ -695,16 +593,27 @@ export const exportUtils = {
    * Export canvas as JPEG
    */
   exportToJPEG(canvas: fabric.Canvas, options: ExportImageOptions = {}): string {
-    return canvas.toDataURL({
+    const defaultOptions = {
       format: 'jpeg',
-      quality: options.quality || 0.8,
-      multiplier: options.multiplier || 1,
-      left: options.left,
-      top: options.top,
-      width: options.width,
-      height: options.height,
-      enableRetinaScaling: options.enableRetinaScaling !== false,
-      withoutTransform: options.withoutTransform || false
+      quality: 0.8,
+      multiplier: 1,
+      enableRetinaScaling: false,
+      withoutTransform: false,
+      withoutShadow: false,
+      ...options
+    };
+
+    return canvas.toDataURL({
+      format: defaultOptions.format,
+      quality: defaultOptions.quality,
+      multiplier: defaultOptions.multiplier,
+      left: defaultOptions.left,
+      top: defaultOptions.top,
+      width: defaultOptions.width,
+      height: defaultOptions.height,
+      enableRetinaScaling: defaultOptions.enableRetinaScaling,
+      withoutTransform: defaultOptions.withoutTransform,
+      withoutShadow: defaultOptions.withoutShadow
     });
   },
 
@@ -712,135 +621,120 @@ export const exportUtils = {
    * Export canvas as SVG
    */
   exportToSVG(canvas: fabric.Canvas, options: ExportSVGOptions = {}): string {
+    const defaultOptions = {
+      suppressPreamble: false,
+      encoding: 'UTF-8',
+      ...options
+    };
+
     return canvas.toSVG({
-      suppressPreamble: options.suppressPreamble || false,
-      viewBox: options.viewBox,
-      encoding: options.encoding || 'UTF-8',
-      width: options.width,
-      height: options.height
+      suppressPreamble: defaultOptions.suppressPreamble,
+      viewBox: defaultOptions.viewBox,
+      encoding: defaultOptions.encoding,
+      width: defaultOptions.width,
+      height: defaultOptions.height
     });
   },
 
   /**
-   * Export canvas as JSON
+   * Export canvas to blob
    */
-  exportToJSON(canvas: fabric.Canvas): string {
-    const customJSON = canvasUtils.exportToCustomJSON(canvas);
-    return JSON.stringify(customJSON, null, 2);
+  async exportToBlob(
+    canvas: fabric.Canvas, 
+    options: ExportImageOptions = {}
+  ): Promise<Blob | null> {
+    return new Promise((resolve) => {
+      canvas.toCanvasElement(options.multiplier || 1).toBlob(
+        (blob) => resolve(blob),
+        `image/${options.format || 'png'}`,
+        options.quality || 1
+      );
+    });
   },
 
   /**
-   * Import from JSON
+   * Download canvas as image file
    */
-  async importFromJSON(canvas: fabric.Canvas, jsonString: string): Promise<void> {
-    try {
-      const data = JSON.parse(jsonString) as CustomCanvasJSON;
-      await canvasUtils.loadFromCustomJSON(canvas, data);
-    } catch (error) {
-      throw new Error(`Failed to import JSON: ${error}`);
-    }
-  },
+  async downloadAsImage(
+    canvas: fabric.Canvas,
+    filename: string,
+    options: ExportImageOptions = {}
+  ): Promise<void> {
+    const blob = await this.exportToBlob(canvas, options);
+    if (!blob) return;
 
-  /**
-   * Download file
-   */
-  downloadFile(content: string | Blob, filename: string, mimeType = 'application/octet-stream'): void {
-    const blob = content instanceof Blob ? content : new Blob([content], { type: mimeType });
     const url = URL.createObjectURL(blob);
-    
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
     URL.revokeObjectURL(url);
   },
 
   /**
-   * Convert canvas to blob
+   * Export canvas to JSON
    */
-  canvasToBlob(canvas: fabric.Canvas, options: ExportOptions): Promise<Blob> {
-    return new Promise((resolve, reject) => {
-      const dataURL = canvas.toDataURL({
-        format: options.format === 'jpeg' ? 'jpeg' : 'png',
-        quality: options.quality || 1,
-        multiplier: options.dpi ? options.dpi / 72 : 1,
-        width: options.width,
-        height: options.height
-      });
-      
-      // Convert data URL to blob
-      fetch(dataURL)
-        .then(res => res.blob())
-        .then(resolve)
-        .catch(reject);
-    });
+  exportToJSON(canvas: fabric.Canvas): string {
+    return JSON.stringify(canvasUtils.exportToCustomJSON(canvas), null, 2);
+  },
+
+  /**
+   * Download file helper
+   */
+  downloadFile(data: string, filename: string, mimeType: string): void {
+    const blob = new Blob([data], { type: mimeType });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
   }
 };
 
 /**
- * Grid and snap utilities
+ * Grid utilities
  */
 export const gridUtils = {
   /**
-   * Draw grid on canvas
+   * Create grid pattern
    */
-  drawGrid(canvas: fabric.Canvas, config: GridConfiguration): void {
-    if (!config.enabled) return;
-
-    const width = canvas.getWidth();
-    const height = canvas.getHeight();
-    const { size, color, opacity, subdivisions } = config;
-
-    // Create grid pattern
-    const patternCanvas = document.createElement('canvas');
-    const patternCtx = patternCanvas.getContext('2d')!;
+  createGridPattern(
+    canvas: fabric.Canvas,
+    size: number,
+    color = '#ddd',
+    opacity = 0.5
+  ): void {
+    const canvasWidth = canvas.getWidth();
+    const canvasHeight = canvas.getHeight();
     
-    patternCanvas.width = size;
-    patternCanvas.height = size;
+    const gridSvg = `
+      <svg width="${canvasWidth}" height="${canvasHeight}" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <pattern id="grid" width="${size}" height="${size}" patternUnits="userSpaceOnUse">
+            <path d="M ${size} 0 L 0 0 0 ${size}" fill="none" stroke="${color}" stroke-width="1" opacity="${opacity}"/>
+          </pattern>
+        </defs>
+        <rect width="100%" height="100%" fill="url(#grid)" />
+      </svg>
+    `;
     
-    patternCtx.strokeStyle = color;
-    patternCtx.globalAlpha = opacity;
-    patternCtx.lineWidth = 1;
+    const gridUrl = 'data:image/svg+xml;base64,' + btoa(gridSvg);
     
-    // Draw grid lines
-    patternCtx.beginPath();
-    patternCtx.moveTo(0, 0);
-    patternCtx.lineTo(size, 0);
-    patternCtx.moveTo(0, 0);
-    patternCtx.lineTo(0, size);
-    patternCtx.stroke();
-    
-    // Draw subdivisions if specified
-    if (subdivisions > 1) {
-      const subSize = size / subdivisions;
-      patternCtx.globalAlpha = opacity * 0.5;
-      patternCtx.lineWidth = 0.5;
-      
-      for (let i = 1; i < subdivisions; i++) {
-        patternCtx.beginPath();
-        patternCtx.moveTo(i * subSize, 0);
-        patternCtx.lineTo(i * subSize, size);
-        patternCtx.moveTo(0, i * subSize);
-        patternCtx.lineTo(size, i * subSize);
-        patternCtx.stroke();
+    fabric.Image.fromURL(gridUrl, (img) => {
+      if (img) {
+        img.set({
+          selectable: false,
+          evented: false,
+          excludeFromExport: true
+        });
+        canvas.setOverlayImage(img, canvas.renderAll.bind(canvas));
       }
-    }
-    
-    // Create pattern and set as overlay
-    const patternDataUrl = patternCanvas.toDataURL();
-    const patternImage = new Image();
-    patternImage.onload = () => {
-      const pattern = new fabric.Pattern({
-        source: patternImage,
-        repeat: 'repeat'
-      });
-      
-      canvas.setOverlayColor(pattern, canvas.renderAll.bind(canvas));
-    };
-    patternImage.src = patternDataUrl;
+    });
   },
 
   /**
@@ -863,6 +757,123 @@ export const gridUtils = {
     });
     
     obj.setCoords();
+  },
+
+  /**
+   * Toggle grid visibility
+   */
+  toggleGrid(canvas: fabric.Canvas, show: boolean, size = 20, color = '#ddd'): void {
+    if (show) {
+      this.createGridPattern(canvas, size, color);
+    } else {
+      this.removeGrid(canvas);
+    }
+  },
+
+  /**
+   * Snap all objects to grid
+   */
+  snapAllObjectsToGrid(canvas: fabric.Canvas, gridSize: number): void {
+    canvas.getObjects().forEach(obj => {
+      this.snapObjectToGrid(obj, gridSize);
+    });
+    canvas.renderAll();
+  },
+
+  /**
+   * Draw grid on canvas
+   */
+  drawGrid(canvas: fabric.Canvas, options: {
+    enabled?: boolean;
+    size?: number;
+    color?: string;
+    opacity?: number;
+    style?: 'dots' | 'lines' | 'cross';
+    subdivisions?: number;
+    snapToGrid?: boolean;
+    snapTolerance?: number;
+  } = {}): void {
+    const { 
+      enabled = true, 
+      size = 20, 
+      color = '#ddd', 
+      opacity = 0.5, 
+      style = 'lines'
+    } = options;
+    
+    if (!enabled) return;
+    
+    if (style === 'lines') {
+      this.createGridPattern(canvas, size, color, opacity);
+    } else if (style === 'dots') {
+      this.createDotGrid(canvas, size, color, opacity);
+    } else if (style === 'cross') {
+      this.createCrossGrid(canvas, size, color, opacity);
+    }
+  },
+
+  /**
+   * Create dot grid pattern
+   */
+  createDotGrid(canvas: fabric.Canvas, size: number, color = '#ddd', opacity = 0.5): void {
+    const canvasWidth = canvas.getWidth();
+    const canvasHeight = canvas.getHeight();
+    
+    const gridSvg = `
+      <svg width="${canvasWidth}" height="${canvasHeight}" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <pattern id="dotgrid" width="${size}" height="${size}" patternUnits="userSpaceOnUse">
+            <circle cx="${size/2}" cy="${size/2}" r="1" fill="${color}" opacity="${opacity}"/>
+          </pattern>
+        </defs>
+        <rect width="100%" height="100%" fill="url(#dotgrid)" />
+      </svg>
+    `;
+    
+    const gridUrl = 'data:image/svg+xml;base64,' + btoa(gridSvg);
+    
+    fabric.Image.fromURL(gridUrl, (img) => {
+      if (img) {
+        img.set({
+          selectable: false,
+          evented: false,
+          excludeFromExport: true
+        });
+        canvas.setOverlayImage(img, canvas.renderAll.bind(canvas));
+      }
+    });
+  },
+
+  /**
+   * Create cross grid pattern
+   */
+  createCrossGrid(canvas: fabric.Canvas, size: number, color = '#ddd', opacity = 0.5): void {
+    const canvasWidth = canvas.getWidth();
+    const canvasHeight = canvas.getHeight();
+    
+    const gridSvg = `
+      <svg width="${canvasWidth}" height="${canvasHeight}" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <pattern id="crossgrid" width="${size}" height="${size}" patternUnits="userSpaceOnUse">
+            <path d="M ${size/2-2} ${size/2} L ${size/2+2} ${size/2} M ${size/2} ${size/2-2} L ${size/2} ${size/2+2}" stroke="${color}" stroke-width="1" opacity="${opacity}"/>
+          </pattern>
+        </defs>
+        <rect width="100%" height="100%" fill="url(#crossgrid)" />
+      </svg>
+    `;
+    
+    const gridUrl = 'data:image/svg+xml;base64,' + btoa(gridSvg);
+    
+    fabric.Image.fromURL(gridUrl, (img) => {
+      if (img) {
+        img.set({
+          selectable: false,
+          evented: false,
+          excludeFromExport: true
+        });
+        canvas.setOverlayImage(img, canvas.renderAll.bind(canvas));
+      }
+    });
   }
 };
 
@@ -919,9 +930,9 @@ export const performanceUtils = {
     getMetrics: () => any;
     dispose: () => void;
   } {
+    let fps = 0;
     let frameCount = 0;
     let lastTime = performance.now();
-    let fps = 0;
     
     const measureFrame = () => {
       frameCount++;
@@ -948,6 +959,124 @@ export const performanceUtils = {
         }
       }),
       dispose: () => cancelAnimationFrame(animationId)
+    };
+  }
+};
+
+/**
+ * Coordinate transformation and geometry utilities
+ */
+export const coordinateUtils = {
+  /**
+   * Convert canvas coordinates to screen coordinates
+   */
+  canvasToScreen(canvas: fabric.Canvas, point: { x: number; y: number }): { x: number; y: number } {
+    const zoom = canvas.getZoom();
+    const vpt = canvas.viewportTransform;
+    
+    return {
+      x: point.x * zoom + (vpt ? vpt[4] : 0),
+      y: point.y * zoom + (vpt ? vpt[5] : 0)
+    };
+  },
+
+  /**
+   * Convert screen coordinates to canvas coordinates
+   */
+  screenToCanvas(canvas: fabric.Canvas, point: { x: number; y: number }): { x: number; y: number } {
+    const zoom = canvas.getZoom();
+    const vpt = canvas.viewportTransform;
+    
+    return {
+      x: (point.x - (vpt ? vpt[4] : 0)) / zoom,
+      y: (point.y - (vpt ? vpt[5] : 0)) / zoom
+    };
+  },
+
+  /**
+   * Snap point to grid
+   */
+  snapToGrid(point: { x: number; y: number }, gridSize: number): { x: number; y: number } {
+    return {
+      x: Math.round(point.x / gridSize) * gridSize,
+      y: Math.round(point.y / gridSize) * gridSize
+    };
+  },
+
+  /**
+   * Calculate distance between two points
+   */
+  distance(p1: { x: number; y: number }, p2: { x: number; y: number }): number {
+    const dx = p2.x - p1.x;
+    const dy = p2.y - p1.y;
+    return Math.sqrt(dx * dx + dy * dy);
+  },
+
+  /**
+   * Calculate angle between two points in radians
+   */
+  angle(p1: { x: number; y: number }, p2: { x: number; y: number }): number {
+    return Math.atan2(p2.y - p1.y, p2.x - p1.x);
+  },
+
+  /**
+   * Get object bounds in canvas coordinates
+   */
+  getObjectBounds(obj: fabric.Object): BoundingRect {
+    const bounds = obj.getBoundingRect();
+    const left = bounds.left || 0;
+    const top = bounds.top || 0;
+    const width = bounds.width || 0;
+    const height = bounds.height || 0;
+    
+    return {
+      left,
+      top,
+      width,
+      height,
+      right: left + width,
+      bottom: top + height
+    };
+  },
+
+  /**
+   * Check if a point is inside an object
+   */
+  isPointInsideObject(obj: fabric.Object, point: { x: number; y: number }): boolean {
+    const bounds = obj.getBoundingRect();
+    const left = bounds.left || 0;
+    const top = bounds.top || 0;
+    const width = bounds.width || 0;
+    const height = bounds.height || 0;
+    
+    return point.x >= left && 
+           point.x <= left + width &&
+           point.y >= top && 
+           point.y <= top + height;
+  },
+
+  /**
+   * Get center point of an object
+   */
+  getObjectCenter(obj: fabric.Object): { x: number; y: number } {
+    return {
+      x: obj.left! + (obj.width! * obj.scaleX!) / 2,
+      y: obj.top! + (obj.height! * obj.scaleY!) / 2
+    };
+  },
+
+  /**
+   * Rotate point around center by angle
+   */
+  rotatePoint(point: { x: number; y: number }, center: { x: number; y: number }, angle: number): { x: number; y: number } {
+    const cos = Math.cos(angle);
+    const sin = Math.sin(angle);
+    const dx = point.x - center.x;
+    const dy = point.y - center.y;
+    
+    return {
+      x: center.x + dx * cos - dy * sin,
+      y: center.y + dx * sin + dy * cos
     };
   }
 };

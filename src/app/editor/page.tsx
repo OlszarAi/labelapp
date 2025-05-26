@@ -82,6 +82,8 @@ function EditorContent() {
   // Zmodyfikowana funkcja ładowania projektu i etykiety
   useEffect(() => {
     const loadProjectAndLabel = async () => {
+      if (!searchParams) return;
+      
       const projectIdParam = searchParams.get('projectId');
       const labelIdParam = searchParams.get('labelId');
       const nameParam = searchParams.get('name');
