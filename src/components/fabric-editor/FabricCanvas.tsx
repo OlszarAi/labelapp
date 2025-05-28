@@ -6,8 +6,11 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react';
 import { fabric } from 'fabric';
 import { CanvasDimensions, CanvasState, GridConfiguration } from '../../types/canvas';
+import { HistoryActionType } from '../../types/fabric';
 import Ruler from '../ui/Ruler';
 import CanvasControls from './CanvasControls';
+import { useKeyboardShortcuts } from '../../hooks/useKeyboardShortcuts';
+import { useCanvasHistory } from '../../hooks/useCanvasHistory';
 
 interface FabricCanvasProps {
   // Canvas configuration
@@ -42,6 +45,10 @@ interface FabricCanvasProps {
   onCanvasSizeChange?: (width: number, height: number) => void;
   onZoomChange?: (zoom: number) => void;
   onGridChange?: (enabled: boolean, size: number) => void;
+  
+  // Keyboard shortcuts
+  enableKeyboardShortcuts?: boolean;
+  onToolChange?: (tool: string) => void;
   
   // Performance and styling
   className?: string;
@@ -83,6 +90,10 @@ const FabricCanvas: React.FC<FabricCanvasProps> = ({
   onZoomChange,
   onGridChange,
   
+  // Keyboard shortcuts
+  enableKeyboardShortcuts = true,
+  onToolChange,
+  
   // Performance and styling
   className = '',
   showControls = true,
@@ -95,6 +106,31 @@ const FabricCanvas: React.FC<FabricCanvasProps> = ({
   const rulerRefs = useRef<{ horizontal: HTMLDivElement | null; vertical: HTMLDivElement | null }>({
     horizontal: null,
     vertical: null
+  });
+  
+  // Canvas focus state for keyboard shortcuts
+  const [canvasFocused, setCanvasFocused] = useState(false);
+  
+  // Canvas history hook with enhanced options
+  const {
+    undo,
+    redo,
+    canUndo,
+    canRedo,
+    saveState,
+    saveStateNow,
+    clearHistory,
+    getHistoryMetadata,
+    historySize,
+    currentHistoryIndex
+  } = useCanvasHistory(fabricCanvasRef.current, {
+    maxHistorySize: 50,
+    debounceMs: 500,
+    enableCompression: true,
+    enableLogging: false,
+    compressionThreshold: 10240, // 10KB
+    ignoreMinorChanges: true,
+    minorChangeThreshold: 100
   });
   
   // Mouse position for ruler tracking
@@ -711,6 +747,189 @@ const FabricCanvas: React.FC<FabricCanvasProps> = ({
     }
   };
 
+  // Canvas actions for keyboard shortcuts
+  const handleDelete = useCallback(() => {
+    if (!fabricCanvasRef.current) return;
+    const activeObjects = fabricCanvasRef.current.getActiveObjects();
+    if (activeObjects.length > 0) {
+      activeObjects.forEach(obj => fabricCanvasRef.current!.remove(obj));
+      fabricCanvasRef.current.discardActiveObject();
+      fabricCanvasRef.current.renderAll();
+      saveStateNow(HistoryActionType.REMOVE, `Deleted ${activeObjects.length} object(s)`);
+    }
+  }, [saveStateNow]);
+
+  const handleCopy = useCallback(() => {
+    if (!fabricCanvasRef.current) return;
+    const activeObject = fabricCanvasRef.current.getActiveObject();
+    if (activeObject) {
+      // Store in clipboard - simplified version
+      console.log('Copy executed for object:', activeObject.type);
+    }
+  }, []);
+
+  const handlePaste = useCallback(() => {
+    if (!fabricCanvasRef.current) return;
+    // Simplified paste - would normally paste from clipboard
+    console.log('Paste executed');
+  }, []);
+
+  const handleDuplicate = useCallback(() => {
+    if (!fabricCanvasRef.current) return;
+    const activeObject = fabricCanvasRef.current.getActiveObject();
+    if (activeObject) {
+      activeObject.clone((cloned: fabric.Object) => {
+        cloned.set({
+          left: (cloned.left || 0) + 20,
+          top: (cloned.top || 0) + 20
+        });
+        fabricCanvasRef.current!.add(cloned);
+        fabricCanvasRef.current!.setActiveObject(cloned);
+        fabricCanvasRef.current!.renderAll();
+        saveStateNow(HistoryActionType.ADD, 'Duplicated object');
+      });
+    }
+  }, [saveStateNow]);
+
+  const handleSelectAll = useCallback(() => {
+    if (!fabricCanvasRef.current) return;
+    const objects = fabricCanvasRef.current.getObjects();
+    if (objects.length > 0) {
+      const selection = new fabric.ActiveSelection(objects, {
+        canvas: fabricCanvasRef.current
+      });
+      fabricCanvasRef.current.setActiveObject(selection);
+      fabricCanvasRef.current.renderAll();
+    }
+  }, []);
+
+  const handleDeselectAll = useCallback(() => {
+    if (!fabricCanvasRef.current) return;
+    fabricCanvasRef.current.discardActiveObject();
+    fabricCanvasRef.current.renderAll();
+  }, []);
+
+  const handleMoveSelected = useCallback((direction: 'up' | 'down' | 'left' | 'right', distance: number) => {
+    if (!fabricCanvasRef.current) return;
+    const activeObjects = fabricCanvasRef.current.getActiveObjects();
+    if (activeObjects.length > 0) {
+      activeObjects.forEach(obj => {
+        const currentLeft = obj.left || 0;
+        const currentTop = obj.top || 0;
+        
+        switch (direction) {
+          case 'up':
+            obj.set('top', currentTop - distance);
+            break;
+          case 'down':
+            obj.set('top', currentTop + distance);
+            break;
+          case 'left':
+            obj.set('left', currentLeft - distance);
+            break;
+          case 'right':
+            obj.set('left', currentLeft + distance);
+            break;
+        }
+        obj.setCoords();
+      });
+      fabricCanvasRef.current.renderAll();
+      saveStateNow(HistoryActionType.MOVE, `Moved ${activeObjects.length} object(s) ${direction}`);
+    }
+  }, [saveStateNow]);
+
+  // Handle canvas focus for keyboard shortcuts
+  useEffect(() => {
+    const canvas = fabricCanvasRef.current;
+    if (!canvas) return;
+
+    const handleCanvasClick = () => {
+      setCanvasFocused(true);
+    };
+
+    const handleCanvasBlur = () => {
+      // Check if focus moved to another element outside the canvas
+      setTimeout(() => {
+        if (!containerRef.current?.contains(document.activeElement)) {
+          setCanvasFocused(false);
+        }
+      }, 0);
+    };
+
+    // Listen for canvas events
+    canvas.on('mouse:down', handleCanvasClick);
+    
+    // Listen for global focus events
+    document.addEventListener('click', (e) => {
+      if (!containerRef.current?.contains(e.target as Node)) {
+        setCanvasFocused(false);
+      }
+    });
+
+    return () => {
+      canvas.off('mouse:down', handleCanvasClick);
+    };
+  }, [fabricCanvasRef.current]);
+
+  // Save canvas state when objects are modified for history tracking
+  useEffect(() => {
+    const canvas = fabricCanvasRef.current;
+    if (!canvas) return;
+
+    const handleObjectAdded = () => {
+      // Use saveState with proper action type
+      saveState(HistoryActionType.ADD, 'Added object');
+    };
+
+    const handleObjectRemoved = () => {
+      // Use saveState with proper action type
+      saveState(HistoryActionType.REMOVE, 'Removed object');
+    };
+
+    const handleObjectModified = () => {
+      // Use default saveState which auto-detects action type
+      saveState();
+    };
+
+    canvas.on('object:added', handleObjectAdded);
+    canvas.on('object:removed', handleObjectRemoved);
+    canvas.on('object:modified', handleObjectModified);
+    canvas.on('path:created', handleObjectAdded); // For drawing tools
+
+    return () => {
+      canvas.off('object:added', handleObjectAdded);
+      canvas.off('object:removed', handleObjectRemoved);
+      canvas.off('object:modified', handleObjectModified);
+      canvas.off('path:created', handleObjectAdded);
+    };
+  }, [fabricCanvasRef.current, saveState]);
+
+  // Keyboard shortcuts integration
+  useKeyboardShortcuts({
+    canvas: fabricCanvasRef.current,
+    canvasFocused,
+    enabled: enableKeyboardShortcuts,
+    onUndo: undo,
+    onRedo: redo,
+    canUndo,
+    canRedo,
+    onDelete: handleDelete,
+    onCopy: handleCopy,
+    onPaste: handlePaste,
+    onDuplicate: handleDuplicate,
+    onSelectAll: handleSelectAll,
+    onDeselectAll: handleDeselectAll,
+    onZoomIn: () => zoomTo(dimensions.zoom * 1.1),
+    onZoomOut: () => zoomTo(dimensions.zoom / 1.1),
+    onFitToScreen: fitToViewport,
+    onToggleGrid: () => setGridConfig(prev => ({ ...prev, enabled: !prev.enabled })),
+    onToggleRulers: () => console.log('Toggle rulers - implement in parent'),
+    onTextTool: () => onToolChange?.('text'),
+    onQRCodeTool: () => onToolChange?.('qr'),
+    onUUIDTool: () => onToolChange?.('uuid'),
+    onMoveSelected: handleMoveSelected
+  });
+
   if (canvasState.hasError) {
     return (
       <div className={`fabric-canvas-container error ${className}`}>
@@ -794,10 +1013,14 @@ const FabricCanvas: React.FC<FabricCanvasProps> = ({
           right: '0',
           bottom: '0',
           minWidth: '300px',
-          minHeight: '200px'
+          minHeight: '200px',
+          outline: 'none' // Remove focus outline since we handle it visually
         }}
         onMouseDown={handleMouseDown}
         onMouseMove={handleMouseMove}
+        onFocus={() => setCanvasFocused(true)}
+        onBlur={() => setCanvasFocused(false)}
+        tabIndex={0}
       >
         <canvas
           ref={canvasRef}

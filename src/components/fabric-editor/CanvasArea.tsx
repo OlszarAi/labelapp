@@ -23,6 +23,10 @@ interface CanvasAreaProps {
   minZoom?: number;
   maxZoom?: number;
   
+  // Keyboard shortcuts
+  enableKeyboardShortcuts?: boolean;
+  onToolChange?: (tool: string) => void;
+  
   // Event handlers
   onCanvasReady?: (canvas: fabric.Canvas) => void;
   onSelectionChange?: (selectedObjects: fabric.Object[]) => void;
@@ -42,10 +46,12 @@ const CanvasArea: React.FC<CanvasAreaProps> = ({
   zoom = 1,
   minZoom = 0.1,
   maxZoom = 10,
+  enableKeyboardShortcuts = true,
   onCanvasReady,
   onSelectionChange,
   onObjectModified,
-  onZoomChange
+  onZoomChange,
+  onToolChange
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const [containerSize, setContainerSize] = useState({ width: 0, height: 0 });
@@ -157,10 +163,12 @@ const CanvasArea: React.FC<CanvasAreaProps> = ({
             rulerUnit={rulerUnit}
             minZoom={minZoom}
             maxZoom={maxZoom}
+            enableKeyboardShortcuts={enableKeyboardShortcuts}
             onCanvasReady={onCanvasReady}
             onSelectionChange={onSelectionChange}
             onObjectModified={onObjectModified}
             onZoomChange={onZoomChange}
+            onToolChange={onToolChange}
             className="w-full h-full"
             showControls={false} // Hide controls since we have them in the layout
             showInfo={true} // Show info overlay

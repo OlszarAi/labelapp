@@ -42,6 +42,11 @@ interface EditorLayoutProps {
   rightSidebarCollapsed?: boolean;
   
   /**
+   * Keyboard shortcuts
+   */
+  enableKeyboardShortcuts?: boolean;
+  
+  /**
    * Event handlers
    */
   onCanvasReady?: (canvas: fabric.Canvas) => void;
@@ -49,6 +54,7 @@ interface EditorLayoutProps {
   onObjectModified?: (objects: fabric.Object[]) => void;
   onCanvasSizeChange?: (width: number, height: number) => void;
   onZoomChange?: (zoom: number) => void;
+  onToolChange?: (tool: string) => void;
   
   /**
    * Custom styling
@@ -80,12 +86,16 @@ const EditorLayout: React.FC<EditorLayoutProps> = ({
   leftSidebarCollapsed = false,
   rightSidebarCollapsed = false,
   
+  // Keyboard shortcuts
+  enableKeyboardShortcuts = true,
+  
   // Event handlers
   onCanvasReady,
   onSelectionChange,
   onObjectModified,
   onCanvasSizeChange,
   onZoomChange,
+  onToolChange,
   
   // Custom styling
   className = ''
@@ -101,6 +111,9 @@ const EditorLayout: React.FC<EditorLayoutProps> = ({
     width: canvasWidth,
     height: canvasHeight
   });
+  
+  // Tool management
+  const [currentTool, setCurrentTool] = useState<string>('select');
   
   // Grid and ruler state
   const [gridSettings, setGridSettings] = useState({
@@ -143,6 +156,13 @@ const EditorLayout: React.FC<EditorLayoutProps> = ({
   const handleZoomChange = (newZoom: number) => {
     setCurrentZoom(newZoom);
     onZoomChange?.(newZoom);
+  };
+  
+  // Tool change handler
+  const handleToolChange = (tool: string) => {
+    setCurrentTool(tool);
+    onToolChange?.(tool);
+    console.log(`✅ Tool changed to: ${tool}`);
   };
   
   // Panel collapse handlers
@@ -350,6 +370,157 @@ const EditorLayout: React.FC<EditorLayoutProps> = ({
     console.log(`✅ Updated property "${property}" to "${value}" for ${targetObjects.length} object(s)`);
   };
 
+  // Keyboard shortcuts handler
+  React.useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (!enableKeyboardShortcuts) return;
+      
+      const { key, ctrlKey, shiftKey, altKey } = e;
+      
+      // Prevent default actions for these keys
+      if (key === 'Control' || key === 'Shift' || key === 'Alt') {
+        e.preventDefault();
+      }
+      
+      switch (key) {
+        // Toggle left sidebar
+        case 'ArrowLeft':
+          if (ctrlKey) {
+            e.preventDefault();
+            toggleLeftSidebar();
+          }
+          break;
+          
+        // Toggle right sidebar
+        case 'ArrowRight':
+          if (ctrlKey) {
+            e.preventDefault();
+            toggleRightSidebar();
+          }
+          break;
+          
+        // Zoom in
+        case '=':
+        case '+':
+          if (ctrlKey) {
+            e.preventDefault();
+            handleZoomIn();
+          }
+          break;
+          
+        // Zoom out
+        case '-':
+          if (ctrlKey) {
+            e.preventDefault();
+            handleZoomOut();
+          }
+          break;
+          
+        // Reset zoom
+        case '0':
+          if (ctrlKey) {
+            e.preventDefault();
+            handleZoomReset();
+          }
+          break;
+          
+        // Fit to screen
+        case 'f':
+        case 'F':
+          if (ctrlKey) {
+            e.preventDefault();
+            handleFitToScreen();
+          }
+          break;
+          
+        // Select tool
+        case 'v':
+        case 'V':
+          if (ctrlKey) {
+            e.preventDefault();
+            handleToolChange('select');
+          }
+          break;
+          
+        // Rectangle tool
+        case 'r':
+        case 'R':
+          if (ctrlKey) {
+            e.preventDefault();
+            handleToolChange('rectangle');
+          }
+          break;
+          
+        // Circle tool
+        case 'c':
+        case 'C':
+          if (ctrlKey) {
+            e.preventDefault();
+            handleToolChange('circle');
+          }
+          break;
+          
+        // Line tool
+        case 'l':
+        case 'L':
+          if (ctrlKey) {
+            e.preventDefault();
+            handleToolChange('line');
+          }
+          break;
+          
+        // Text tool
+        case 't':
+        case 'T':
+          if (ctrlKey) {
+            e.preventDefault();
+            handleToolChange('text');
+          }
+          break;
+          
+        // Triangle tool
+        case 'y':
+        case 'Y':
+          if (ctrlKey) {
+            e.preventDefault();
+            handleToolChange('triangle');
+          }
+          break;
+          
+        // Star tool
+        case 's':
+        case 'S':
+          if (ctrlKey) {
+            e.preventDefault();
+            handleToolChange('star');
+          }
+          break;
+          
+        // Delete selected objects
+        case 'Backspace':
+        case 'Delete':
+          e.preventDefault();
+          if (canvasRef.current) {
+            const canvas = canvasRef.current;
+            const activeObjects = canvas.getActiveObjects();
+            activeObjects.forEach(obj => canvas.remove(obj));
+            canvas.discardActiveObject();
+            canvas.renderAll();
+          }
+          break;
+          
+        default:
+          break;
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [enableKeyboardShortcuts, currentZoom, selectedObjects]);
+
   return (
     <div className={`w-full h-screen bg-gray-50 dark:bg-gray-900 flex flex-col ${className}`}>
       {/* Header with canvas controls */}
@@ -511,10 +682,12 @@ const EditorLayout: React.FC<EditorLayoutProps> = ({
               zoom={currentZoom}
               minZoom={minZoom}
               maxZoom={maxZoom}
+              enableKeyboardShortcuts={enableKeyboardShortcuts}
               onCanvasReady={handleCanvasReady}
               onSelectionChange={handleSelectionChange}
               onObjectModified={handleObjectModified}
               onZoomChange={handleZoomChange}
+              onToolChange={handleToolChange}
             />
           </Panel>
           
