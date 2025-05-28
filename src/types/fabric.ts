@@ -715,3 +715,57 @@ export interface GridInterface {
   snapToGrid: boolean;
   snapTolerance: number;
 }
+
+// Custom object type extensions
+declare module 'fabric' {
+  namespace fabric {
+    interface Object {
+      id?: string;
+      metadata?: Record<string, any>;
+    }
+
+    // QR Code object interface
+    interface QRCodeObject extends fabric.Image {
+      qrData: string;
+      qrOptions: any;
+      generationResult?: any;
+      linkedUUID?: string;
+      updateQRCode(): Promise<void>;
+      updateQRData(newData: string): void;
+      updateQROptions(newOptions: any): void;
+      linkToUUID(uuidObjectId: string): void;
+    }
+
+    // UUID object interface
+    interface UUIDObject extends fabric.Text {
+      uuidData: string;
+      uuidOptions: any;
+      generationResult?: any;
+      linkedQRCode?: string;
+      displayFormat?: {
+        showPrefix?: boolean;
+        showSeparators?: boolean;
+        caseTransform?: 'none' | 'upper' | 'lower';
+      };
+      updateUUID(newUuidData?: string, newOptions?: any): void;
+      regenerateUUID(): void;
+      updateDisplayFormat(newFormat: any): void;
+      linkToQRCode(qrObjectId: string): void;
+    }
+
+    // Constructor interfaces
+    interface QRCodeObjectStatic {
+      new (qrData: string, options?: any): QRCodeObject;
+      fromObject(object: any, callback: (obj: QRCodeObject) => void): void;
+    }
+
+    interface UUIDObjectStatic {
+      new (uuidData: string, options?: any): UUIDObject;
+      fromObject(object: any, callback: (obj: UUIDObject) => void): void;
+    }
+
+    // Add to fabric namespace
+    const QRCodeObject: QRCodeObjectStatic;
+    const UUIDObject: UUIDObjectStatic;
+  }
+}

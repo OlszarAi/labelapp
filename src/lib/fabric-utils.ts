@@ -25,7 +25,13 @@ import {
   ExportOptions,
   ImportOptions,
   GridConfiguration,
-  SnapConfiguration
+  GridSizePreset,
+  SnapConfiguration,
+  AlignmentConfiguration,
+  SpacingInfo,
+  CanvasSizePreset,
+  BackgroundPatternType,
+  RulerConfiguration
 } from '../types/canvas';
 
 /**
@@ -701,28 +707,282 @@ export const exportUtils = {
  */
 export const gridUtils = {
   /**
-   * Create grid pattern
+   * Get predefined grid size presets
    */
-  createGridPattern(
-    canvas: fabric.Canvas,
-    size: number,
-    color = '#ddd',
-    opacity = 0.5
-  ): void {
+  getGridSizePresets(): GridSizePreset[] {
+    return [
+      { name: '1mm', value: 3.78, unit: 'mm', description: 'Fine grid - 1 millimeter' },
+      { name: '2mm', value: 7.56, unit: 'mm', description: 'Fine grid - 2 millimeters' },
+      { name: '5mm', value: 18.9, unit: 'mm', description: 'Standard grid - 5 millimeters' },
+      { name: '10mm', value: 37.8, unit: 'mm', description: 'Large grid - 10 millimeters' },
+      { name: '1/8"', value: 12, unit: 'in', description: 'Fine grid - 1/8 inch' },
+      { name: '1/4"', value: 24, unit: 'in', description: 'Standard grid - 1/4 inch' },
+      { name: '1/2"', value: 48, unit: 'in', description: 'Large grid - 1/2 inch' },
+      { name: '10px', value: 10, unit: 'px', description: 'Small pixel grid' },
+      { name: '20px', value: 20, unit: 'px', description: 'Medium pixel grid' },
+      { name: '50px', value: 50, unit: 'px', description: 'Large pixel grid' }
+    ];
+  },
+
+  /**
+   * Enhanced grid drawing with multiple types and sub-grids
+   */
+  drawGrid(canvas: fabric.Canvas, config: GridConfiguration): void {
+    if (!config.enabled) {
+      this.removeGrid(canvas);
+      return;
+    }
+
+    const zoom = canvas.getZoom();
+    
+    // Calculate effective grid size with zoom
+    const effectiveSize = config.size * zoom;
+    
+    // Don't draw if grid would be too small to see
+    if (effectiveSize < 2) return;
+    
+    // Hide subdivisions at low zoom if adaptive zoom is enabled
+    const showSubdivisions = !config.adaptiveZoom || effectiveSize > 10;
+
+    switch (config.type) {
+      case 'lines':
+        this.createAdvancedGridPattern(canvas, config, zoom, showSubdivisions);
+        break;
+      case 'dots':
+        this.createAdvancedDotGrid(canvas, config, zoom, showSubdivisions);
+        break;
+      case 'cross':
+        this.createAdvancedCrossGrid(canvas, config, zoom, showSubdivisions);
+        break;
+      case 'hybrid':
+        this.createHybridGrid(canvas, config, zoom, showSubdivisions);
+        break;
+      default:
+        this.createAdvancedGridPattern(canvas, config, zoom, showSubdivisions);
+    }
+  },
+
+  /**
+   * Create advanced grid pattern with subdivisions
+   */
+  createAdvancedGridPattern(canvas: fabric.Canvas, config: GridConfiguration, zoom: number, showSubdivisions: boolean): void {
     const canvasWidth = canvas.getWidth();
     const canvasHeight = canvas.getHeight();
+    const effectiveSize = config.size * zoom;
+    const subdivisionSize = effectiveSize / config.subdivisions;
     
-    const gridSvg = `
+    let gridSvg = `
       <svg width="${canvasWidth}" height="${canvasHeight}" xmlns="http://www.w3.org/2000/svg">
         <defs>
-          <pattern id="grid" width="${size}" height="${size}" patternUnits="userSpaceOnUse">
-            <path d="M ${size} 0 L 0 0 0 ${size}" fill="none" stroke="${color}" stroke-width="1" opacity="${opacity}"/>
+          <pattern id="advancedGrid" width="${effectiveSize}" height="${effectiveSize}" patternUnits="userSpaceOnUse">
+    `;
+
+    // Add subdivision lines
+    if (showSubdivisions && config.subdivisions > 1) {
+      for (let i = 1; i < config.subdivisions; i++) {
+        const pos = i * subdivisionSize;
+        gridSvg += `
+          <path d="M ${pos} 0 L ${pos} ${effectiveSize}" 
+                stroke="${config.minorLineColor}" 
+                stroke-width="${config.minorLineWidth}" 
+                opacity="${config.minorLineOpacity}"/>
+          <path d="M 0 ${pos} L ${effectiveSize} ${pos}" 
+                stroke="${config.minorLineColor}" 
+                stroke-width="${config.minorLineWidth}" 
+                opacity="${config.minorLineOpacity}"/>
+        `;
+      }
+    }
+
+    // Add major grid lines
+    gridSvg += `
+      <path d="M ${effectiveSize} 0 L ${effectiveSize} ${effectiveSize} M 0 ${effectiveSize} L ${effectiveSize} ${effectiveSize}" 
+            stroke="${config.majorLineColor}" 
+            stroke-width="${config.majorLineWidth}" 
+            opacity="${config.majorLineOpacity}"/>
+    `;
+
+    // Add origin highlight if enabled
+    if (config.showOrigin) {
+      gridSvg += `
+        <circle cx="0" cy="0" r="3" fill="${config.originColor}" opacity="0.8"/>
+      `;
+    }
+
+    gridSvg += `
           </pattern>
         </defs>
-        <rect width="100%" height="100%" fill="url(#grid)" />
+        <rect width="100%" height="100%" fill="url(#advancedGrid)" />
       </svg>
     `;
+
+    this.applyGridToCanvas(canvas, gridSvg);
+  },
+
+  /**
+   * Create advanced dot grid with subdivisions
+   */
+  createAdvancedDotGrid(canvas: fabric.Canvas, config: GridConfiguration, zoom: number, showSubdivisions: boolean): void {
+    const canvasWidth = canvas.getWidth();
+    const canvasHeight = canvas.getHeight();
+    const effectiveSize = config.size * zoom;
+    const subdivisionSize = effectiveSize / config.subdivisions;
     
+    let gridSvg = `
+      <svg width="${canvasWidth}" height="${canvasHeight}" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <pattern id="advancedDotGrid" width="${effectiveSize}" height="${effectiveSize}" patternUnits="userSpaceOnUse">
+    `;
+
+    // Add subdivision dots
+    if (showSubdivisions && config.subdivisions > 1) {
+      for (let i = 1; i < config.subdivisions; i++) {
+        for (let j = 1; j < config.subdivisions; j++) {
+          const x = i * subdivisionSize;
+          const y = j * subdivisionSize;
+          gridSvg += `
+            <circle cx="${x}" cy="${y}" r="0.5" 
+                    fill="${config.minorLineColor}" 
+                    opacity="${config.minorLineOpacity}"/>
+          `;
+        }
+      }
+    }
+
+    // Add major grid dots
+    gridSvg += `
+      <circle cx="${effectiveSize}" cy="${effectiveSize}" r="1.5" 
+              fill="${config.majorLineColor}" 
+              opacity="${config.majorLineOpacity}"/>
+    `;
+
+    // Add origin highlight
+    if (config.showOrigin) {
+      gridSvg += `
+        <circle cx="0" cy="0" r="3" fill="${config.originColor}" opacity="0.8"/>
+      `;
+    }
+
+    gridSvg += `
+          </pattern>
+        </defs>
+        <rect width="100%" height="100%" fill="url(#advancedDotGrid)" />
+      </svg>
+    `;
+
+    this.applyGridToCanvas(canvas, gridSvg);
+  },
+
+  /**
+   * Create advanced cross grid
+   */
+  createAdvancedCrossGrid(canvas: fabric.Canvas, config: GridConfiguration, zoom: number, showSubdivisions: boolean): void {
+    const canvasWidth = canvas.getWidth();
+    const canvasHeight = canvas.getHeight();
+    const effectiveSize = config.size * zoom;
+    const subdivisionSize = effectiveSize / config.subdivisions;
+    const crossSize = Math.max(2, effectiveSize * 0.1);
+    
+    let gridSvg = `
+      <svg width="${canvasWidth}" height="${canvasHeight}" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <pattern id="advancedCrossGrid" width="${effectiveSize}" height="${effectiveSize}" patternUnits="userSpaceOnUse">
+    `;
+
+    // Add subdivision crosses
+    if (showSubdivisions && config.subdivisions > 1) {
+      for (let i = 1; i < config.subdivisions; i++) {
+        for (let j = 1; j < config.subdivisions; j++) {
+          const x = i * subdivisionSize;
+          const y = j * subdivisionSize;
+          const minorCrossSize = crossSize * 0.5;
+          gridSvg += `
+            <path d="M ${x-minorCrossSize/2} ${y} L ${x+minorCrossSize/2} ${y} M ${x} ${y-minorCrossSize/2} L ${x} ${y+minorCrossSize/2}" 
+                  stroke="${config.minorLineColor}" 
+                  stroke-width="${config.minorLineWidth}" 
+                  opacity="${config.minorLineOpacity}"/>
+          `;
+        }
+      }
+    }
+
+    // Add major cross
+    gridSvg += `
+      <path d="M ${effectiveSize-crossSize/2} ${effectiveSize} L ${effectiveSize+crossSize/2} ${effectiveSize} M ${effectiveSize} ${effectiveSize-crossSize/2} L ${effectiveSize} ${effectiveSize+crossSize/2}" 
+            stroke="${config.majorLineColor}" 
+            stroke-width="${config.majorLineWidth}" 
+            opacity="${config.majorLineOpacity}"/>
+    `;
+
+    gridSvg += `
+          </pattern>
+        </defs>
+        <rect width="100%" height="100%" fill="url(#advancedCrossGrid)" />
+      </svg>
+    `;
+
+    this.applyGridToCanvas(canvas, gridSvg);
+  },
+
+  /**
+   * Create hybrid grid (combination of lines and dots)
+   */
+  createHybridGrid(canvas: fabric.Canvas, config: GridConfiguration, zoom: number, showSubdivisions: boolean): void {
+    const canvasWidth = canvas.getWidth();
+    const canvasHeight = canvas.getHeight();
+    const effectiveSize = config.size * zoom;
+    const subdivisionSize = effectiveSize / config.subdivisions;
+    
+    let gridSvg = `
+      <svg width="${canvasWidth}" height="${canvasHeight}" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <pattern id="hybridGrid" width="${effectiveSize}" height="${effectiveSize}" patternUnits="userSpaceOnUse">
+    `;
+
+    // Add subdivision dots
+    if (showSubdivisions && config.subdivisions > 1) {
+      for (let i = 1; i < config.subdivisions; i++) {
+        for (let j = 1; j < config.subdivisions; j++) {
+          const x = i * subdivisionSize;
+          const y = j * subdivisionSize;
+          gridSvg += `
+            <circle cx="${x}" cy="${y}" r="0.5" 
+                    fill="${config.minorLineColor}" 
+                    opacity="${config.minorLineOpacity}"/>
+          `;
+        }
+      }
+    }
+
+    // Add major grid lines
+    gridSvg += `
+      <path d="M ${effectiveSize} 0 L ${effectiveSize} ${effectiveSize} M 0 ${effectiveSize} L ${effectiveSize} ${effectiveSize}" 
+            stroke="${config.majorLineColor}" 
+            stroke-width="${config.majorLineWidth}" 
+            opacity="${config.majorLineOpacity}"/>
+    `;
+
+    // Add intersection dots at major grid points
+    gridSvg += `
+      <circle cx="${effectiveSize}" cy="${effectiveSize}" r="2" 
+              fill="${config.majorLineColor}" 
+              opacity="${config.majorLineOpacity}"/>
+    `;
+
+    gridSvg += `
+          </pattern>
+        </defs>
+        <rect width="100%" height="100%" fill="url(#hybridGrid)" />
+      </svg>
+    `;
+
+    this.applyGridToCanvas(canvas, gridSvg);
+  },
+
+  /**
+   * Apply SVG grid to canvas
+   */
+  applyGridToCanvas(canvas: fabric.Canvas, gridSvg: string): void {
     const gridUrl = 'data:image/svg+xml;base64,' + btoa(gridSvg);
     
     fabric.Image.fromURL(gridUrl, (img) => {
@@ -730,8 +990,9 @@ export const gridUtils = {
         img.set({
           selectable: false,
           evented: false,
-          excludeFromExport: true
-        });
+          excludeFromExport: true,
+          isGridPattern: true
+        } as any);
         canvas.setOverlayImage(img, canvas.renderAll.bind(canvas));
       }
     });
@@ -741,139 +1002,54 @@ export const gridUtils = {
    * Remove grid from canvas
    */
   removeGrid(canvas: fabric.Canvas): void {
-    canvas.setOverlayColor('', canvas.renderAll.bind(canvas));
+    canvas.setOverlayImage(null as any, canvas.renderAll.bind(canvas));
   },
 
   /**
-   * Snap object to grid
+   * Enhanced snap object to grid with subdivision support
    */
-  snapObjectToGrid(obj: fabric.Object, gridSize: number): void {
-    const snappedLeft = Math.round((obj.left || 0) / gridSize) * gridSize;
-    const snappedTop = Math.round((obj.top || 0) / gridSize) * gridSize;
-    
-    obj.set({
-      left: snappedLeft,
-      top: snappedTop
-    });
-    
-    obj.setCoords();
-  },
+  snapObjectToGrid(obj: fabric.Object, config: GridConfiguration): void {
+    if (!config.snapToGrid) return;
 
-  /**
-   * Toggle grid visibility
-   */
-  toggleGrid(canvas: fabric.Canvas, show: boolean, size = 20, color = '#ddd'): void {
-    if (show) {
-      this.createGridPattern(canvas, size, color);
-    } else {
-      this.removeGrid(canvas);
+    const gridSize = config.snapToSubGrid ? config.size / config.subdivisions : config.size;
+    const tolerance = config.snapTolerance;
+
+    const objLeft = obj.left || 0;
+    const objTop = obj.top || 0;
+
+    // Calculate snapped positions
+    const snappedLeft = Math.round(objLeft / gridSize) * gridSize;
+    const snappedTop = Math.round(objTop / gridSize) * gridSize;
+
+    // Only snap if within tolerance
+    if (Math.abs(objLeft - snappedLeft) <= tolerance && Math.abs(objTop - snappedTop) <= tolerance) {
+      obj.set({
+        left: snappedLeft,
+        top: snappedTop
+      });
+      obj.setCoords();
     }
   },
 
   /**
    * Snap all objects to grid
    */
-  snapAllObjectsToGrid(canvas: fabric.Canvas, gridSize: number): void {
+  snapAllObjectsToGrid(canvas: fabric.Canvas, config: GridConfiguration): void {
     canvas.getObjects().forEach(obj => {
-      this.snapObjectToGrid(obj, gridSize);
+      this.snapObjectToGrid(obj, config);
     });
     canvas.renderAll();
   },
 
   /**
-   * Draw grid on canvas
+   * Toggle grid visibility
    */
-  drawGrid(canvas: fabric.Canvas, options: {
-    enabled?: boolean;
-    size?: number;
-    color?: string;
-    opacity?: number;
-    style?: 'dots' | 'lines' | 'cross';
-    subdivisions?: number;
-    snapToGrid?: boolean;
-    snapTolerance?: number;
-  } = {}): void {
-    const { 
-      enabled = true, 
-      size = 20, 
-      color = '#ddd', 
-      opacity = 0.5, 
-      style = 'lines'
-    } = options;
-    
-    if (!enabled) return;
-    
-    if (style === 'lines') {
-      this.createGridPattern(canvas, size, color, opacity);
-    } else if (style === 'dots') {
-      this.createDotGrid(canvas, size, color, opacity);
-    } else if (style === 'cross') {
-      this.createCrossGrid(canvas, size, color, opacity);
+  toggleGrid(canvas: fabric.Canvas, show: boolean, config: GridConfiguration): void {
+    if (show) {
+      this.drawGrid(canvas, { ...config, enabled: true });
+    } else {
+      this.removeGrid(canvas);
     }
-  },
-
-  /**
-   * Create dot grid pattern
-   */
-  createDotGrid(canvas: fabric.Canvas, size: number, color = '#ddd', opacity = 0.5): void {
-    const canvasWidth = canvas.getWidth();
-    const canvasHeight = canvas.getHeight();
-    
-    const gridSvg = `
-      <svg width="${canvasWidth}" height="${canvasHeight}" xmlns="http://www.w3.org/2000/svg">
-        <defs>
-          <pattern id="dotgrid" width="${size}" height="${size}" patternUnits="userSpaceOnUse">
-            <circle cx="${size/2}" cy="${size/2}" r="1" fill="${color}" opacity="${opacity}"/>
-          </pattern>
-        </defs>
-        <rect width="100%" height="100%" fill="url(#dotgrid)" />
-      </svg>
-    `;
-    
-    const gridUrl = 'data:image/svg+xml;base64,' + btoa(gridSvg);
-    
-    fabric.Image.fromURL(gridUrl, (img) => {
-      if (img) {
-        img.set({
-          selectable: false,
-          evented: false,
-          excludeFromExport: true
-        });
-        canvas.setOverlayImage(img, canvas.renderAll.bind(canvas));
-      }
-    });
-  },
-
-  /**
-   * Create cross grid pattern
-   */
-  createCrossGrid(canvas: fabric.Canvas, size: number, color = '#ddd', opacity = 0.5): void {
-    const canvasWidth = canvas.getWidth();
-    const canvasHeight = canvas.getHeight();
-    
-    const gridSvg = `
-      <svg width="${canvasWidth}" height="${canvasHeight}" xmlns="http://www.w3.org/2000/svg">
-        <defs>
-          <pattern id="crossgrid" width="${size}" height="${size}" patternUnits="userSpaceOnUse">
-            <path d="M ${size/2-2} ${size/2} L ${size/2+2} ${size/2} M ${size/2} ${size/2-2} L ${size/2} ${size/2+2}" stroke="${color}" stroke-width="1" opacity="${opacity}"/>
-          </pattern>
-        </defs>
-        <rect width="100%" height="100%" fill="url(#crossgrid)" />
-      </svg>
-    `;
-    
-    const gridUrl = 'data:image/svg+xml;base64,' + btoa(gridSvg);
-    
-    fabric.Image.fromURL(gridUrl, (img) => {
-      if (img) {
-        img.set({
-          selectable: false,
-          evented: false,
-          excludeFromExport: true
-        });
-        canvas.setOverlayImage(img, canvas.renderAll.bind(canvas));
-      }
-    });
   }
 };
 
@@ -1078,5 +1254,536 @@ export const coordinateUtils = {
       x: center.x + dx * cos - dy * sin,
       y: center.y + dx * sin + dy * cos
     };
+  }
+};
+
+/**
+ * Canvas size presets and background pattern utilities
+ */
+export const canvasPresetUtils = {
+  /**
+   * Get predefined canvas size presets
+   */
+  getCanvasSizePresets(): CanvasSizePreset[] {
+    return [
+      // Standard paper sizes
+      { name: 'A4', width: 794, height: 1123, unit: 'pt', category: 'print', description: 'A4 Paper (210 × 297 mm)' },
+      { name: 'A3', width: 1123, height: 1587, unit: 'pt', category: 'print', description: 'A3 Paper (297 × 420 mm)' },
+      { name: 'Letter', width: 816, height: 1056, unit: 'pt', category: 'print', description: 'US Letter (8.5 × 11 in)' },
+      { name: 'Legal', width: 816, height: 1344, unit: 'pt', category: 'print', description: 'US Legal (8.5 × 14 in)' },
+      { name: 'Tabloid', width: 1056, height: 1632, unit: 'pt', category: 'print', description: 'Tabloid (11 × 17 in)' },
+      
+      // Business card and label sizes
+      { name: 'Business Card', width: 252, height: 144, unit: 'pt', category: 'standard', description: 'Standard Business Card (3.5 × 2 in)' },
+      { name: 'Address Label', width: 252, height: 72, unit: 'pt', category: 'standard', description: 'Address Label (3.5 × 1 in)' },
+      { name: 'Shipping Label', width: 288, height: 432, unit: 'pt', category: 'standard', description: 'Shipping Label (4 × 6 in)' },
+      { name: 'CD Label', width: 354, height: 354, unit: 'pt', category: 'standard', description: 'CD/DVD Label (120mm diameter)' },
+      
+      // Web and digital sizes
+      { name: 'Full HD', width: 1920, height: 1080, unit: 'px', category: 'web', description: 'Full HD Display (1920 × 1080)' },
+      { name: '4K UHD', width: 3840, height: 2160, unit: 'px', category: 'web', description: '4K Ultra HD (3840 × 2160)' },
+      { name: 'Social Media Post', width: 1080, height: 1080, unit: 'px', category: 'web', description: 'Square Social Media (1080 × 1080)' },
+      { name: 'Social Media Story', width: 1080, height: 1920, unit: 'px', category: 'web', description: 'Vertical Story Format (9:16)' },
+      { name: 'Web Banner', width: 728, height: 90, unit: 'px', category: 'web', description: 'Leaderboard Web Banner' },
+      
+      // Mobile sizes
+      { name: 'iPhone 14', width: 390, height: 844, unit: 'px', category: 'mobile', description: 'iPhone 14 Screen (390 × 844)' },
+      { name: 'iPhone 14 Pro Max', width: 430, height: 932, unit: 'px', category: 'mobile', description: 'iPhone 14 Pro Max (430 × 932)' },
+      { name: 'iPad', width: 768, height: 1024, unit: 'px', category: 'mobile', description: 'iPad Screen (768 × 1024)' },
+      { name: 'Android Phone', width: 360, height: 640, unit: 'px', category: 'mobile', description: 'Standard Android (360 × 640)' },
+      
+      // Custom common sizes
+      { name: 'Square Small', width: 400, height: 400, unit: 'px', category: 'custom', description: 'Small Square Canvas' },
+      { name: 'Square Medium', width: 800, height: 800, unit: 'px', category: 'custom', description: 'Medium Square Canvas' },
+      { name: 'Landscape', width: 1200, height: 800, unit: 'px', category: 'custom', description: 'Landscape Format (3:2)' },
+      { name: 'Portrait', width: 800, height: 1200, unit: 'px', category: 'custom', description: 'Portrait Format (2:3)' }
+    ];
+  },
+
+  /**
+   * Apply canvas size preset
+   */
+  applyCanvasSizePreset(canvas: fabric.Canvas, preset: CanvasSizePreset): void {
+    canvas.setDimensions({
+      width: preset.width,
+      height: preset.height
+    });
+    canvas.renderAll();
+  },
+
+  /**
+   * Create background pattern
+   */
+  createBackgroundPattern(canvas: fabric.Canvas, type: BackgroundPatternType, options: {
+    color?: string;
+    backgroundColor?: string;
+    size?: number;
+    opacity?: number;
+  } = {}): void {
+    const {
+      color = '#e5e5e5',
+      backgroundColor = '#ffffff',
+      size = 20,
+      opacity = 0.3
+    } = options;
+
+    // Clear existing background pattern
+    canvas.backgroundColor = backgroundColor;
+
+    if (type === 'none') {
+      canvas.renderAll();
+      return;
+    }
+
+    const patternCanvas = document.createElement('canvas');
+    const patternContext = patternCanvas.getContext('2d');
+    if (!patternContext) return;
+
+    patternCanvas.width = size;
+    patternCanvas.height = size;
+
+    // Set background
+    patternContext.fillStyle = backgroundColor;
+    patternContext.fillRect(0, 0, size, size);
+
+    // Set pattern color with opacity
+    patternContext.globalAlpha = opacity;
+    patternContext.fillStyle = color;
+    patternContext.strokeStyle = color;
+    patternContext.lineWidth = 1;
+
+    switch (type) {
+      case 'dots':
+        this.createDotPattern(patternContext, size);
+        break;
+      case 'grid':
+        this.createGridPattern(patternContext, size);
+        break;
+      case 'diagonal':
+        this.createDiagonalPattern(patternContext, size);
+        break;
+      case 'crosshatch':
+        this.createCrosshatchPattern(patternContext, size);
+        break;
+      case 'hexagon':
+        this.createHexagonPattern(patternContext, size);
+        break;
+      case 'triangular':
+        this.createTriangularPattern(patternContext, size);
+        break;
+    }
+
+    const pattern = patternContext.createPattern(patternCanvas, 'repeat');
+    if (pattern) {
+      canvas.backgroundColor = pattern as unknown as string;
+      canvas.renderAll();
+    }
+  },
+
+  /**
+   * Create dot pattern
+   */
+  createDotPattern(ctx: CanvasRenderingContext2D, size: number): void {
+    const center = size / 2;
+    const radius = Math.max(1, size / 10);
+    
+    ctx.beginPath();
+    ctx.arc(center, center, radius, 0, 2 * Math.PI);
+    ctx.fill();
+  },
+
+  /**
+   * Create grid pattern
+   */
+  createGridPattern(ctx: CanvasRenderingContext2D, size: number): void {
+    // Vertical line
+    ctx.beginPath();
+    ctx.moveTo(size, 0);
+    ctx.lineTo(size, size);
+    ctx.stroke();
+
+    // Horizontal line
+    ctx.beginPath();
+    ctx.moveTo(0, size);
+    ctx.lineTo(size, size);
+    ctx.stroke();
+  },
+
+  /**
+   * Create diagonal pattern
+   */
+  createDiagonalPattern(ctx: CanvasRenderingContext2D, size: number): void {
+    // Diagonal line from top-left to bottom-right
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.lineTo(size, size);
+    ctx.stroke();
+  },
+
+  /**
+   * Create crosshatch pattern
+   */
+  createCrosshatchPattern(ctx: CanvasRenderingContext2D, size: number): void {
+    // Diagonal line 1
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.lineTo(size, size);
+    ctx.stroke();
+
+    // Diagonal line 2
+    ctx.beginPath();
+    ctx.moveTo(size, 0);
+    ctx.lineTo(0, size);
+    ctx.stroke();
+  },
+
+  /**
+   * Create hexagon pattern
+   */
+  createHexagonPattern(ctx: CanvasRenderingContext2D, size: number): void {
+    const centerX = size / 2;
+    const centerY = size / 2;
+    const radius = size / 3;
+    
+    ctx.beginPath();
+    for (let i = 0; i < 6; i++) {
+      const angle = (i * Math.PI) / 3;
+      const x = centerX + radius * Math.cos(angle);
+      const y = centerY + radius * Math.sin(angle);
+      
+      if (i === 0) {
+        ctx.moveTo(x, y);
+      } else {
+        ctx.lineTo(x, y);
+      }
+    }
+    ctx.closePath();
+    ctx.stroke();
+  },
+
+  /**
+   * Create triangular pattern
+   */
+  createTriangularPattern(ctx: CanvasRenderingContext2D, size: number): void {
+    const height = size * 0.866; // Height of equilateral triangle
+    
+    // Triangle 1
+    ctx.beginPath();
+    ctx.moveTo(size / 2, 0);
+    ctx.lineTo(0, height);
+    ctx.lineTo(size, height);
+    ctx.closePath();
+    ctx.stroke();
+  },
+
+  /**
+   * Get predefined background pattern options
+   */
+  getBackgroundPatternOptions(): Array<{
+    type: BackgroundPatternType;
+    name: string;
+    description: string;
+    preview?: string;
+  }> {
+    return [
+      { type: 'none', name: 'None', description: 'Solid background color' },
+      { type: 'dots', name: 'Dots', description: 'Small dots pattern' },
+      { type: 'grid', name: 'Grid', description: 'Simple grid lines' },
+      { type: 'diagonal', name: 'Diagonal', description: 'Diagonal lines' },
+      { type: 'crosshatch', name: 'Crosshatch', description: 'Crossed diagonal lines' },
+      { type: 'hexagon', name: 'Hexagon', description: 'Hexagonal pattern' },
+      { type: 'triangular', name: 'Triangular', description: 'Triangular pattern' }
+    ];
+  }
+};
+
+/**
+ * Enhanced ruler system utilities
+ */
+export const rulerUtils = {
+  /**
+   * Create ruler with enhanced features
+   */
+  createEnhancedRuler(
+    canvas: fabric.Canvas,
+    orientation: 'horizontal' | 'vertical',
+    config: RulerConfiguration
+  ): fabric.Group {
+    const rulerSize = 30; // Height/width of ruler
+    const canvasWidth = canvas.getWidth();
+    const canvasHeight = canvas.getHeight();
+    
+    const rulerLength = orientation === 'horizontal' ? canvasWidth : canvasHeight;
+    const rulerElements: fabric.Object[] = [];
+
+    // Create ruler background
+    const background = new fabric.Rect({
+      left: 0,
+      top: 0,
+      width: orientation === 'horizontal' ? rulerLength : rulerSize,
+      height: orientation === 'horizontal' ? rulerSize : rulerLength,
+      fill: config.backgroundColor,
+      stroke: config.color,
+      strokeWidth: 1,
+      selectable: false,
+      evented: false
+    });
+    rulerElements.push(background);
+
+    // Add ticks and labels
+    this.addRulerTicks(rulerElements, orientation, rulerLength, rulerSize, config);
+
+    // Create ruler group
+    const rulerGroup = new fabric.Group(rulerElements, {
+      left: orientation === 'horizontal' ? 0 : -rulerSize,
+      top: orientation === 'horizontal' ? -rulerSize : 0,
+      selectable: false,
+      evented: false,
+      excludeFromExport: true
+    });
+
+    return rulerGroup;
+  },
+
+  /**
+   * Add ruler ticks and labels
+   */
+  addRulerTicks(
+    elements: fabric.Object[],
+    orientation: 'horizontal' | 'vertical',
+    length: number,
+    rulerSize: number,
+    config: RulerConfiguration
+  ): void {
+    const pixelsPerUnit = this.getPixelsPerUnit(config.units);
+    const majorTickInterval = pixelsPerUnit;
+    const minorTickInterval = pixelsPerUnit / 10;
+
+    // Add ticks
+    for (let pos = 0; pos <= length; pos += minorTickInterval) {
+      const isMajorTick = pos % majorTickInterval === 0;
+      const tickLength = isMajorTick ? config.majorTickLength : config.minorTickLength;
+      
+      const tick = new fabric.Line(
+        orientation === 'horizontal' 
+          ? [pos, rulerSize - tickLength, pos, rulerSize]
+          : [rulerSize - tickLength, pos, rulerSize, pos],
+        {
+          stroke: config.tickColor,
+          strokeWidth: 1,
+          selectable: false,
+          evented: false
+        }
+      );
+      elements.push(tick);
+
+      // Add labels for major ticks
+      if (isMajorTick && pos > 0) {
+        const value = this.convertPixelsToUnit(pos, config.units, config.precision);
+        const label = new fabric.Text(value.toString(), {
+          left: orientation === 'horizontal' ? pos : config.labelOffset,
+          top: orientation === 'horizontal' ? config.labelOffset : pos,
+          fontSize: config.fontSize,
+          fill: config.color,
+          textAlign: 'center',
+          originX: 'center',
+          originY: 'center',
+          selectable: false,
+          evented: false
+        });
+        elements.push(label);
+
+        // Add secondary unit if enabled
+        if (config.showMultipleUnits && config.secondaryUnit !== config.units) {
+          const secondaryValue = this.convertPixelsToUnit(pos, config.secondaryUnit, config.precision);
+          const secondaryLabel = new fabric.Text(`(${secondaryValue})`, {
+            left: orientation === 'horizontal' ? pos : config.labelOffset + 15,
+            top: orientation === 'horizontal' ? config.labelOffset + 12 : pos + 12,
+            fontSize: config.fontSize - 2,
+            fill: config.color,
+            opacity: 0.7,
+            textAlign: 'center',
+            originX: 'center',
+            originY: 'center',
+            selectable: false,
+            evented: false
+          });
+          elements.push(secondaryLabel);
+        }
+      }
+    }
+  },
+
+  /**
+   * Get pixels per unit conversion
+   */
+  getPixelsPerUnit(unit: 'px' | 'mm' | 'cm' | 'in' | 'pt'): number {
+    const dpi = 96; // Standard screen DPI
+    
+    switch (unit) {
+      case 'px': return 1;
+      case 'mm': return dpi / 25.4;
+      case 'cm': return dpi / 2.54;
+      case 'in': return dpi;
+      case 'pt': return dpi / 72;
+      default: return 1;
+    }
+  },
+
+  /**
+   * Convert pixels to specified unit
+   */
+  convertPixelsToUnit(pixels: number, unit: 'px' | 'mm' | 'cm' | 'in' | 'pt', precision: number = 0): number {
+    const pixelsPerUnit = this.getPixelsPerUnit(unit);
+    const value = pixels / pixelsPerUnit;
+    return Math.round(value * Math.pow(10, precision)) / Math.pow(10, precision);
+  },
+
+  /**
+   * Create measurement tool for distance measurement
+   */
+  createMeasurementTool(
+    canvas: fabric.Canvas,
+    startPoint: { x: number; y: number },
+    endPoint: { x: number; y: number },
+    config: RulerConfiguration
+  ): fabric.Group {
+    const elements: fabric.Object[] = [];
+
+    // Measurement line
+    const line = new fabric.Line([startPoint.x, startPoint.y, endPoint.x, endPoint.y], {
+      stroke: config.measurementColor,
+      strokeWidth: config.measurementLineWidth,
+      strokeDashArray: [5, 5],
+      selectable: false,
+      evented: false
+    });
+    elements.push(line);
+
+    // Calculate distance
+    const distance = Math.sqrt(
+      Math.pow(endPoint.x - startPoint.x, 2) + Math.pow(endPoint.y - startPoint.y, 2)
+    );
+
+    // Convert to configured unit
+    const value = this.convertPixelsToUnit(distance, config.units, config.precision);
+    const unitLabel = config.units;
+
+    // Distance label
+    const midX = (startPoint.x + endPoint.x) / 2;
+    const midY = (startPoint.y + endPoint.y) / 2;
+    
+    const distanceLabel = new fabric.Text(`${value} ${unitLabel}`, {
+      left: midX,
+      top: midY - 15,
+      fontSize: 12,
+      fill: config.measurementTextColor,
+      backgroundColor: 'rgba(255, 255, 255, 0.8)',
+      textAlign: 'center',
+      originX: 'center',
+      originY: 'center',
+      selectable: false,
+      evented: false
+    });
+    elements.push(distanceLabel);
+
+    // Start and end markers
+    const startMarker = new fabric.Circle({
+      left: startPoint.x,
+      top: startPoint.y,
+      radius: 3,
+      fill: config.measurementColor,
+      originX: 'center',
+      originY: 'center',
+      selectable: false,
+      evented: false
+    });
+    elements.push(startMarker);
+
+    const endMarker = new fabric.Circle({
+      left: endPoint.x,
+      top: endPoint.y,
+      radius: 3,
+      fill: config.measurementColor,
+      originX: 'center',
+      originY: 'center',
+      selectable: false,
+      evented: false
+    });
+    elements.push(endMarker);
+
+    return new fabric.Group(elements, {
+      selectable: false,
+      evented: false,
+      excludeFromExport: true
+    });
+  },
+
+  /**
+   * Create alignment guides
+   */
+  createAlignmentGuides(
+    canvas: fabric.Canvas,
+    activeObject: fabric.Object,
+    config: RulerConfiguration
+  ): fabric.Object[] {
+    if (!config.showGuides) return [];
+
+    const guides: fabric.Object[] = [];
+    const canvasWidth = canvas.getWidth();
+    const canvasHeight = canvas.getHeight();
+    const objectBounds = activeObject.getBoundingRect();
+
+    // Ensure bounds are valid
+    const left = objectBounds.left ?? 0;
+    const top = objectBounds.top ?? 0;
+    const width = objectBounds.width ?? 0;
+    const height = objectBounds.height ?? 0;
+
+    // Vertical guides (left, center, right)
+    const verticalPositions = [
+      left,
+      left + width / 2,
+      left + width
+    ];
+
+    verticalPositions.forEach(x => {
+      if (typeof x === 'number' && isFinite(x)) {
+        const guide = new fabric.Line([x, 0, x, canvasHeight], {
+          stroke: config.guidesColor,
+          strokeWidth: 1,
+          strokeDashArray: [3, 3],
+          opacity: config.guidesOpacity,
+          selectable: false,
+          evented: false,
+          excludeFromExport: true
+        });
+        guides.push(guide);
+      }
+    });
+
+    // Horizontal guides (top, middle, bottom)
+    const horizontalPositions = [
+      top,
+      top + height / 2,
+      top + height
+    ];
+
+    horizontalPositions.forEach(y => {
+      if (typeof y === 'number' && isFinite(y)) {
+        const guide = new fabric.Line([0, y, canvasWidth, y], {
+          stroke: config.guidesColor,
+          strokeWidth: 1,
+          strokeDashArray: [3, 3],
+          opacity: config.guidesOpacity,
+          selectable: false,
+          evented: false,
+          excludeFromExport: true
+        });
+        guides.push(guide);
+      }
+    });
+
+    return guides;
   }
 };

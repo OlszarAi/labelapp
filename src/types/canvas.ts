@@ -178,22 +178,50 @@ export interface CanvasInteractionState {
 }
 
 /**
+ * Grid types available
+ */
+export type GridType = 'lines' | 'dots' | 'cross' | 'hybrid';
+
+/**
+ * Predefined grid sizes in different units
+ */
+export interface GridSizePreset {
+  name: string;
+  value: number; // In pixels
+  unit: string;
+  description: string;
+}
+
+/**
  * Canvas grid configuration
  */
 export interface GridConfiguration {
   enabled: boolean;
-  size: number; // Grid cell size in pixels
-  subdivisions: number; // Subdivision lines
+  type: GridType; // Grid visual style
+  size: number; // Primary grid size in pixels
+  subdivisions: number; // Number of subdivisions between major lines
+  
+  // Visual appearance
   color: string;
   opacity: number;
+  majorLineColor: string;
+  minorLineColor: string;
+  majorLineOpacity: number;
+  minorLineOpacity: number;
+  majorLineWidth: number;
+  minorLineWidth: number;
+  
+  // Snap configuration
   snapToGrid: boolean;
+  snapToSubGrid: boolean; // Snap to subdivision lines
   snapTolerance: number;
   
-  // Advanced grid options
-  majorLineColor?: string;
-  minorLineColor?: string;
-  majorLineOpacity?: number;
-  minorLineOpacity?: number;
+  // Advanced options
+  adaptiveZoom: boolean; // Hide minor grid at low zoom levels
+  showOrigin: boolean; // Highlight 0,0 point
+  originColor: string;
+  showLabels: boolean; // Show coordinate labels
+  labelInterval: number; // Show labels every N grid lines
 }
 
 /**
@@ -211,6 +239,50 @@ export interface SnapConfiguration {
   snapLineColor: string;
   snapLineOpacity: number;
   snapLineDash: number[];
+}
+
+/**
+ * Alignment types for object positioning
+ */
+export type AlignmentType = 
+  | 'left' | 'center' | 'right'
+  | 'top' | 'middle' | 'bottom'
+  | 'distribute-horizontal' | 'distribute-vertical'
+  | 'align-to-canvas' | 'align-to-selection';
+
+/**
+ * Smart spacing detection result
+ */
+export interface SpacingInfo {
+  spacing: number;
+  direction: 'horizontal' | 'vertical';
+  objects: fabric.Object[];
+  isConsistent: boolean;
+  suggestedSpacing?: number;
+}
+
+/**
+ * Object alignment configuration
+ */
+export interface AlignmentConfiguration {
+  showGuides: boolean; // Show alignment guides
+  guideColor: string;
+  guideOpacity: number;
+  snapTolerance: number;
+  
+  // Smart spacing
+  enableSmartSpacing: boolean;
+  spacingTolerance: number;
+  highlightSpacing: boolean;
+  spacingColor: string;
+  
+  // Canvas edge alignment
+  alignToCanvas: boolean;
+  canvasMargin: number; // Margin from canvas edges
+  
+  // Distribution settings
+  distributionSpacing: number;
+  preserveOriginalSpacing: boolean;
 }
 
 /**
@@ -233,6 +305,23 @@ export interface LayerInfo {
 }
 
 /**
+ * Canvas size presets
+ */
+export interface CanvasSizePreset {
+  name: string;
+  width: number;
+  height: number;
+  unit: string;
+  category: 'standard' | 'print' | 'web' | 'mobile' | 'custom';
+  description?: string;
+}
+
+/**
+ * Background pattern types
+ */
+export type BackgroundPatternType = 'none' | 'dots' | 'grid' | 'diagonal' | 'crosshatch' | 'hexagon' | 'triangular';
+
+/**
  * Canvas ruler configuration
  */
 export interface RulerConfiguration {
@@ -248,6 +337,23 @@ export interface RulerConfiguration {
   majorTickLength: number;
   minorTickLength: number;
   labelOffset: number;
+  
+  // Advanced features
+  showGuides: boolean; // Show ruler guides
+  guidesColor: string;
+  guidesOpacity: number;
+  snapToGuides: boolean;
+  guidesTolerance: number;
+  
+  // Distance measurement
+  enableMeasurement: boolean;
+  measurementColor: string;
+  measurementTextColor: string;
+  measurementLineWidth: number;
+  
+  // Multiple unit display
+  showMultipleUnits: boolean;
+  secondaryUnit: 'px' | 'mm' | 'cm' | 'in' | 'pt';
 }
 
 /**

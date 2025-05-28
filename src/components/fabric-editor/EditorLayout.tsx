@@ -370,6 +370,228 @@ const EditorLayout: React.FC<EditorLayoutProps> = ({
     console.log(`✅ Updated property "${property}" to "${value}" for ${targetObjects.length} object(s)`);
   };
 
+  // Alignment functions
+  const handleObjectAlign = (alignment: 'left' | 'center' | 'right' | 'top' | 'middle' | 'bottom') => {
+    if (!canvasRef.current) return;
+    
+    const canvas = canvasRef.current;
+    const activeObjects = canvas.getActiveObjects();
+    if (activeObjects.length === 0) return;
+
+    const canvasWidth = canvas.getWidth();
+    const canvasHeight = canvas.getHeight();
+    
+    activeObjects.forEach(obj => {
+      switch (alignment) {
+        case 'left':
+          obj.set({ left: 0 });
+          break;
+        case 'center':
+          obj.set({ left: (canvasWidth - (obj.width || 0) * (obj.scaleX || 1)) / 2 });
+          break;
+        case 'right':
+          obj.set({ left: canvasWidth - (obj.width || 0) * (obj.scaleX || 1) });
+          break;
+        case 'top':
+          obj.set({ top: 0 });
+          break;
+        case 'middle':
+          obj.set({ top: (canvasHeight - (obj.height || 0) * (obj.scaleY || 1)) / 2 });
+          break;
+        case 'bottom':
+          obj.set({ top: canvasHeight - (obj.height || 0) * (obj.scaleY || 1) });
+          break;
+      }
+      obj.setCoords();
+    });
+    
+    canvas.renderAll();
+    console.log(`✅ Aligned ${activeObjects.length} object(s) to ${alignment}`);
+  };
+
+  const handleObjectDistribute = (distribution: 'horizontal' | 'vertical') => {
+    if (!canvasRef.current) return;
+    
+    const canvas = canvasRef.current;
+    const activeObjects = canvas.getActiveObjects();
+    if (activeObjects.length < 3) return;
+
+    // Sort objects by position
+    const sortedObjects = [...activeObjects].sort((a, b) => {
+      if (distribution === 'horizontal') {
+        return (a.left || 0) - (b.left || 0);
+      } else {
+        return (a.top || 0) - (b.top || 0);
+      }
+    });
+
+    const first = sortedObjects[0];
+    const last = sortedObjects[sortedObjects.length - 1];
+    
+    if (distribution === 'horizontal') {
+      const totalSpace = (last.left || 0) - (first.left || 0);
+      const spacing = totalSpace / (sortedObjects.length - 1);
+      
+      sortedObjects.forEach((obj, index) => {
+        if (index > 0 && index < sortedObjects.length - 1) {
+          obj.set({ left: (first.left || 0) + spacing * index });
+          obj.setCoords();
+        }
+      });
+    } else {
+      const totalSpace = (last.top || 0) - (first.top || 0);
+      const spacing = totalSpace / (sortedObjects.length - 1);
+      
+      sortedObjects.forEach((obj, index) => {
+        if (index > 0 && index < sortedObjects.length - 1) {
+          obj.set({ top: (first.top || 0) + spacing * index });
+          obj.setCoords();
+        }
+      });
+    }
+    
+    canvas.renderAll();
+    console.log(`✅ Distributed ${activeObjects.length} objects ${distribution}ly`);
+  };
+
+  const handleSmartSpacing = (direction: 'horizontal' | 'vertical') => {
+    if (!canvasRef.current) return;
+    
+    const canvas = canvasRef.current;
+    const activeObjects = canvas.getActiveObjects();
+    if (activeObjects.length < 2) return;
+
+    // Sort objects by position
+    const sortedObjects = [...activeObjects].sort((a, b) => {
+      if (direction === 'horizontal') {
+        return (a.left || 0) - (b.left || 0);
+      } else {
+        return (a.top || 0) - (b.top || 0);
+      }
+    });
+
+    // Calculate current spacings
+    const spacings: number[] = [];
+    for (let i = 1; i < sortedObjects.length; i++) {
+      const prev = sortedObjects[i - 1];
+      const curr = sortedObjects[i];
+      
+      if (direction === 'horizontal') {
+        const prevRight = (prev.left || 0) + (prev.width || 0) * (prev.scaleX || 1);
+        const currLeft = curr.left || 0;
+        spacings.push(currLeft - prevRight);
+      } else {
+        const prevBottom = (prev.top || 0) + (prev.height || 0) * (prev.scaleY || 1);
+        const currTop = curr.top || 0;
+        spacings.push(currTop - prevBottom);
+      }
+    }
+
+    // Find the most common spacing (simple approach - use the first spacing)
+    const targetSpacing = spacings[0];
+    
+    // Apply consistent spacing
+    let currentPos = direction === 'horizontal' ? (sortedObjects[0].left || 0) : (sortedObjects[0].top || 0);
+    
+    for (let i = 1; i < sortedObjects.length; i++) {
+      const prev = sortedObjects[i - 1];
+      const curr = sortedObjects[i];
+      
+      if (direction === 'horizontal') {
+        const prevWidth = (prev.width || 0) * (prev.scaleX || 1);
+        currentPos += prevWidth + targetSpacing;
+        curr.set({ left: currentPos });
+      } else {
+        const prevHeight = (prev.height || 0) * (prev.scaleY || 1);
+        currentPos += prevHeight + targetSpacing;
+        curr.set({ top: currentPos });
+      }
+      curr.setCoords();
+    }
+    
+    canvas.renderAll();
+    console.log(`✅ Applied smart spacing (${targetSpacing.toFixed(1)}px) to ${activeObjects.length} objects ${direction}ly`);
+  };
+
+  const handleCanvasAlign = (alignment: 'center' | 'edges') => {
+    if (!canvasRef.current) return;
+    
+    const canvas = canvasRef.current;
+    const activeObjects = canvas.getActiveObjects();
+    if (activeObjects.length === 0) return;
+
+    const canvasWidth = canvas.getWidth();
+    const canvasHeight = canvas.getHeight();
+    
+    if (alignment === 'center') {
+      // Center all objects as a group on the canvas
+      if (activeObjects.length === 1) {
+        const obj = activeObjects[0];
+        obj.set({
+          left: (canvasWidth - (obj.width || 0) * (obj.scaleX || 1)) / 2,
+          top: (canvasHeight - (obj.height || 0) * (obj.scaleY || 1)) / 2
+        });
+        obj.setCoords();
+      } else {
+        // For multiple objects, center the group
+        const group = new fabric.Group(activeObjects, { excludeFromExport: true });
+        const groupBounds = group.getBoundingRect();
+        
+        const centerX = (canvasWidth - (groupBounds.width || 0)) / 2;
+        const centerY = (canvasHeight - (groupBounds.height || 0)) / 2;
+        
+        const deltaX = centerX - (groupBounds.left || 0);
+        const deltaY = centerY - (groupBounds.top || 0);
+        
+        activeObjects.forEach(obj => {
+          obj.set({
+            left: (obj.left || 0) + deltaX,
+            top: (obj.top || 0) + deltaY
+          });
+          obj.setCoords();
+        });
+        
+        // Clean up the temporary group
+        activeObjects.forEach(obj => canvas.add(obj));
+      }
+    } else if (alignment === 'edges') {
+      // Align objects to canvas edges with margin
+      const margin = 10; // 10px margin from edges
+      
+      activeObjects.forEach(obj => {
+        const objBounds = obj.getBoundingRect();
+        let newLeft = obj.left || 0;
+        let newTop = obj.top || 0;
+        
+        // Align to closest edge
+        const distanceToLeft = objBounds.left || 0;
+        const distanceToRight = canvasWidth - ((objBounds.left || 0) + (objBounds.width || 0));
+        const distanceToTop = objBounds.top || 0;
+        const distanceToBottom = canvasHeight - ((objBounds.top || 0) + (objBounds.height || 0));
+        
+        // Horizontal alignment to closest edge
+        if (distanceToLeft < distanceToRight) {
+          newLeft = margin; // Align to left edge
+        } else {
+          newLeft = canvasWidth - margin - (obj.width || 0) * (obj.scaleX || 1); // Align to right edge
+        }
+        
+        // Vertical alignment to closest edge
+        if (distanceToTop < distanceToBottom) {
+          newTop = margin; // Align to top edge
+        } else {
+          newTop = canvasHeight - margin - (obj.height || 0) * (obj.scaleY || 1); // Align to bottom edge
+        }
+        
+        obj.set({ left: newLeft, top: newTop });
+        obj.setCoords();
+      });
+    }
+    
+    canvas.renderAll();
+    console.log(`✅ Aligned ${activeObjects.length} object(s) to canvas ${alignment}`);
+  };
+
   // Keyboard shortcuts handler
   React.useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -706,20 +928,59 @@ const EditorLayout: React.FC<EditorLayoutProps> = ({
                   canvasWidth={canvasDimensions.width}
                   canvasHeight={canvasDimensions.height}
                   canvasBackgroundColor={backgroundColor}
-                  gridEnabled={gridSettings.show}
-                  gridSize={gridSettings.size}
-                  snapToGrid={gridSettings.snap}
-                  rulersEnabled={rulerSettings.show}
-                  rulerUnit={rulerSettings.unit}
+                  gridConfig={{
+                    enabled: gridSettings.show,
+                    type: 'lines',
+                    size: gridSettings.size,
+                    subdivisions: 5,
+                    color: '#e5e5e5',
+                    opacity: 0.5,
+                    majorLineColor: '#d1d5db',
+                    minorLineColor: '#e5e7eb',
+                    majorLineOpacity: 0.8,
+                    minorLineOpacity: 0.4,
+                    majorLineWidth: 1,
+                    minorLineWidth: 0.5,
+                    snapToGrid: gridSettings.snap,
+                    snapToSubGrid: false,
+                    snapTolerance: 5,
+                    adaptiveZoom: true,
+                    showOrigin: false,
+                    originColor: '#ef4444',
+                    showLabels: false,
+                    labelInterval: 5
+                  }}
+                  rulerConfig={{
+                    enabled: rulerSettings.show,
+                    units: rulerSettings.unit,
+                    precision: 1,
+                    color: '#374151',
+                    backgroundColor: '#f9fafb',
+                    fontSize: 10,
+                    tickColor: '#6b7280',
+                    majorTickLength: 10,
+                    minorTickLength: 5,
+                    labelOffset: 2,
+                    showGuides: true,
+                    guidesColor: '#3b82f6',
+                    guidesOpacity: 0.5,
+                    snapToGuides: true,
+                    guidesTolerance: 3,
+                    enableMeasurement: false,
+                    measurementColor: '#ef4444',
+                    measurementTextColor: '#374151',
+                    measurementLineWidth: 1,
+                    showMultipleUnits: false,
+                    secondaryUnit: 'mm'
+                  }}
                   zoom={currentZoom}
                   onCanvasSizeChange={handleCanvasSizeChange}
-                  onGridToggle={handleGridToggle}
-                  onGridSizeChange={handleGridSizeChange}
-                  onSnapToggle={handleSnapToggle}
-                  onRulerToggle={handleRulerToggle}
-                  onRulerUnitChange={handleRulerUnitChange}
                   onZoomChange={handleZoomChange}
                   onObjectPropertyChange={handleObjectPropertyChange}
+                  onObjectAlign={handleObjectAlign}
+                  onObjectDistribute={handleObjectDistribute}
+                  onSmartSpacing={handleSmartSpacing}
+                  onCanvasAlign={handleCanvasAlign}
                 />
               </Panel>
             </>

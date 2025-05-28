@@ -21,6 +21,14 @@
 import React, { useState, useEffect, useCallback, useMemo, memo } from 'react';
 import { fabric } from 'fabric';
 import ColorPickerTab from '../labels/ColorPickerTab';
+import { 
+  GridConfiguration, 
+  RulerConfiguration, 
+  BackgroundPatternType, 
+  CanvasSizePreset,
+  AlignmentType,
+  GridType
+} from '../../types/canvas';
 
 interface RightSidebarProps {
   // Selected objects
@@ -31,14 +39,14 @@ interface RightSidebarProps {
   canvasHeight?: number;
   canvasBackgroundColor?: string;
   
-  // Grid settings
-  gridEnabled?: boolean;
-  gridSize?: number;
-  snapToGrid?: boolean;
+  // Enhanced grid settings
+  gridConfig?: GridConfiguration;
   
-  // Ruler settings
-  rulersEnabled?: boolean;
-  rulerUnit?: 'px' | 'mm' | 'cm' | 'in';
+  // Enhanced ruler settings
+  rulerConfig?: RulerConfiguration;
+  
+  // Background pattern
+  backgroundPattern?: BackgroundPatternType | null;
   
   // Zoom
   zoom?: number;
@@ -46,11 +54,9 @@ interface RightSidebarProps {
   // Event handlers
   onCanvasSizeChange?: (width: number, height: number) => void;
   onCanvasBackgroundChange?: (color: string) => void;
-  onGridToggle?: () => void;
-  onGridSizeChange?: (size: number) => void;
-  onSnapToggle?: () => void;
-  onRulerToggle?: () => void;
-  onRulerUnitChange?: (unit: 'px' | 'mm' | 'cm' | 'in') => void;
+  onGridConfigChange?: (config: Partial<GridConfiguration>) => void;
+  onRulerConfigChange?: (config: Partial<RulerConfiguration>) => void;
+  onBackgroundPatternChange?: (type: BackgroundPatternType | null, options?: any) => void;
   onZoomChange?: (zoom: number) => void;
   onFitToViewport?: () => void;
   onZoomToFit?: () => void;
@@ -61,8 +67,12 @@ interface RightSidebarProps {
   onObjectLock?: (objectId: string, locked: boolean) => void;
   onObjectDelete?: (objectId: string) => void;
   onObjectDuplicate?: (objectId: string) => void;
+  
+  // Enhanced alignment handlers
   onObjectAlign?: (alignment: 'left' | 'center' | 'right' | 'top' | 'middle' | 'bottom') => void;
   onObjectDistribute?: (distribution: 'horizontal' | 'vertical') => void;
+  onSmartSpacing?: (direction: 'horizontal' | 'vertical') => void;
+  onCanvasAlign?: (alignment: 'center' | 'edges') => void;
 }
 
 const RightSidebar: React.FC<RightSidebarProps> = ({
@@ -70,19 +80,58 @@ const RightSidebar: React.FC<RightSidebarProps> = ({
   canvasWidth = 800,
   canvasHeight = 600,
   canvasBackgroundColor = '#ffffff',
-  gridEnabled = true,
-  gridSize = 20,
-  snapToGrid = false,
-  rulersEnabled = true,
-  rulerUnit = 'px',
+  gridConfig = {
+    enabled: true,
+    type: 'lines',
+    size: 20,
+    subdivisions: 5,
+    color: '#e5e5e5',
+    opacity: 0.5,
+    majorLineColor: '#d1d5db',
+    minorLineColor: '#e5e7eb',
+    majorLineOpacity: 0.8,
+    minorLineOpacity: 0.4,
+    majorLineWidth: 1,
+    minorLineWidth: 0.5,
+    snapToGrid: false,
+    snapToSubGrid: false,
+    snapTolerance: 5,
+    adaptiveZoom: true,
+    showOrigin: false,
+    originColor: '#ef4444',
+    showLabels: false,
+    labelInterval: 5
+  },
+  rulerConfig = {
+    enabled: true,
+    units: 'px',
+    precision: 1,
+    color: '#374151',
+    backgroundColor: '#f9fafb',
+    fontSize: 10,
+    tickColor: '#6b7280',
+    majorTickLength: 10,
+    minorTickLength: 5,
+    labelOffset: 2,
+    showGuides: true,
+    guidesColor: '#3b82f6',
+    guidesOpacity: 0.5,
+    snapToGuides: true,
+    guidesTolerance: 3,
+    enableMeasurement: false,
+    measurementColor: '#ef4444',
+    measurementTextColor: '#1f2937',
+    measurementLineWidth: 1,
+    showMultipleUnits: false,
+    secondaryUnit: 'mm'
+  },
+  backgroundPattern = null,
   zoom = 1,
   onCanvasSizeChange,
   onCanvasBackgroundChange,
-  onGridToggle,
-  onGridSizeChange,
-  onSnapToggle,
-  onRulerToggle,
-  onRulerUnitChange,
+  onGridConfigChange,
+  onRulerConfigChange,
+  onBackgroundPatternChange,
   onZoomChange,
   onFitToViewport,
   onZoomToFit,
@@ -92,7 +141,9 @@ const RightSidebar: React.FC<RightSidebarProps> = ({
   onObjectDelete,
   onObjectDuplicate,
   onObjectAlign,
-  onObjectDistribute
+  onObjectDistribute,
+  onSmartSpacing,
+  onCanvasAlign
 }) => {
   const [activeSection, setActiveSection] = useState(selectedObjects.length > 0 ? 'object' : 'canvas');
   const [collapsedSections, setCollapsedSections] = useState<Set<string>>(new Set());
@@ -461,55 +512,182 @@ const RightSidebar: React.FC<RightSidebarProps> = ({
               />
             </CollapsibleSection>
 
-            <CollapsibleSection id="grid-settings" title="Grid Settings">
+            <CollapsibleSection id="grid-settings" title="Enhanced Grid Settings">
               <div className="space-y-4">
                 <Toggle
                   label="Show Grid"
-                  checked={gridEnabled}
-                  onChange={() => onGridToggle?.()}
+                  checked={gridConfig.enabled}
+                  onChange={() => onGridConfigChange?.({ enabled: !gridConfig.enabled })}
                   description="Display grid lines on canvas"
                 />
                 
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">Grid Type</label>
+                  <select
+                    value={gridConfig.type}
+                    onChange={(e) => onGridConfigChange?.({ type: e.target.value as GridType })}
+                    className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="lines">Lines</option>
+                    <option value="dots">Dots</option>
+                    <option value="cross">Cross</option>
+                    <option value="hybrid">Hybrid</option>
+                  </select>
+                </div>
+                
                 <NumberInput
                   label="Grid Size"
-                  value={gridSize}
-                  onChange={onGridSizeChange || (() => {})}
+                  value={gridConfig.size}
+                  onChange={(value) => onGridConfigChange?.({ size: value })}
                   min={5}
                   max={100}
                   unit="px"
                 />
                 
+                <NumberInput
+                  label="Subdivisions"
+                  value={gridConfig.subdivisions}
+                  onChange={(value) => onGridConfigChange?.({ subdivisions: value })}
+                  min={1}
+                  max={10}
+                />
+                
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Opacity</label>
+                    <input
+                      type="range"
+                      min="0"
+                      max="1"
+                      step="0.1"
+                      value={gridConfig.opacity}
+                      onChange={(e) => onGridConfigChange?.({ opacity: Number(e.target.value) })}
+                      className="w-full"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">Color</label>
+                    <input
+                      type="color"
+                      value={gridConfig.color}
+                      onChange={(e) => onGridConfigChange?.({ color: e.target.value })}
+                      className="w-full h-8 rounded border border-gray-300 dark:border-gray-600"
+                    />
+                  </div>
+                </div>
+                
                 <Toggle
                   label="Snap to Grid"
-                  checked={snapToGrid}
-                  onChange={() => onSnapToggle?.()}
+                  checked={gridConfig.snapToGrid}
+                  onChange={() => onGridConfigChange?.({ snapToGrid: !gridConfig.snapToGrid })}
                   description="Snap objects to grid points"
+                />
+                
+                <Toggle
+                  label="Show Origin"
+                  checked={gridConfig.showOrigin}
+                  onChange={() => onGridConfigChange?.({ showOrigin: !gridConfig.showOrigin })}
+                  description="Highlight the origin point (0,0)"
+                />
+                
+                <Toggle
+                  label="Adaptive Zoom"
+                  checked={gridConfig.adaptiveZoom}
+                  onChange={() => onGridConfigChange?.({ adaptiveZoom: !gridConfig.adaptiveZoom })}
+                  description="Hide minor grid at low zoom levels"
                 />
               </div>
             </CollapsibleSection>
 
-            <CollapsibleSection id="rulers" title="Rulers">
+            <CollapsibleSection id="rulers" title="Enhanced Rulers">
               <div className="space-y-4">
                 <Toggle
                   label="Show Rulers"
-                  checked={rulersEnabled}
-                  onChange={() => onRulerToggle?.()}
+                  checked={rulerConfig.enabled}
+                  onChange={() => onRulerConfigChange?.({ enabled: !rulerConfig.enabled })}
                   description="Display rulers around canvas"
                 />
                 
                 <div>
-                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">Unit</label>
+                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">Primary Unit</label>
                   <ButtonGroup
                     options={[
                       { value: 'px', label: 'px' },
                       { value: 'mm', label: 'mm' },
                       { value: 'cm', label: 'cm' },
-                      { value: 'in', label: 'in' }
+                      { value: 'in', label: 'in' },
+                      { value: 'pt', label: 'pt' }
                     ]}
-                    value={rulerUnit}
-                    onChange={(unit) => onRulerUnitChange?.(unit as any)}
+                    value={rulerConfig.units}
+                    onChange={(unit) => onRulerConfigChange?.({ units: unit as any })}
                   />
                 </div>
+                
+                <NumberInput
+                  label="Precision"
+                  value={rulerConfig.precision}
+                  onChange={(value) => onRulerConfigChange?.({ precision: value })}
+                  min={0}
+                  max={3}
+                />
+                
+                <Toggle
+                  label="Show Guides"
+                  checked={rulerConfig.showGuides}
+                  onChange={() => onRulerConfigChange?.({ showGuides: !rulerConfig.showGuides })}
+                  description="Show ruler guide lines"
+                />
+                
+                <Toggle
+                  label="Snap to Guides"
+                  checked={rulerConfig.snapToGuides}
+                  onChange={() => onRulerConfigChange?.({ snapToGuides: !rulerConfig.snapToGuides })}
+                  description="Snap objects to guide lines"
+                />
+                
+                <Toggle
+                  label="Distance Measurement"
+                  checked={rulerConfig.enableMeasurement}
+                  onChange={() => onRulerConfigChange?.({ enableMeasurement: !rulerConfig.enableMeasurement })}
+                  description="Enable click-and-drag distance measurement"
+                />
+                
+                <Toggle
+                  label="Multiple Units"
+                  checked={rulerConfig.showMultipleUnits}
+                  onChange={() => onRulerConfigChange?.({ showMultipleUnits: !rulerConfig.showMultipleUnits })}
+                  description="Show measurements in multiple units"
+                />
+              </div>
+            </CollapsibleSection>
+
+            <CollapsibleSection id="background-pattern" title="Background Pattern">
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">Pattern Type</label>
+                  <select
+                    value={backgroundPattern || 'none'}
+                    onChange={(e) => {
+                      const value = e.target.value === 'none' ? null : e.target.value as BackgroundPatternType;
+                      onBackgroundPatternChange?.(value);
+                    }}
+                    className="w-full px-2 py-1 text-sm border border-gray-300 dark:border-gray-600 rounded bg-white dark:bg-gray-700 focus:ring-2 focus:ring-blue-500"
+                  >
+                    <option value="none">None</option>
+                    <option value="dots">Dots</option>
+                    <option value="grid">Grid</option>
+                    <option value="diagonal">Diagonal</option>
+                    <option value="crosshatch">Crosshatch</option>
+                    <option value="hexagon">Hexagon</option>
+                    <option value="triangular">Triangular</option>
+                  </select>
+                </div>
+                
+                {backgroundPattern && (
+                  <div className="text-xs text-gray-500 dark:text-gray-400 p-2 bg-gray-50 dark:bg-gray-800 rounded">
+                    Pattern options and preview will be available in the canvas controls panel
+                  </div>
+                )}
               </div>
             </CollapsibleSection>
 
@@ -853,6 +1031,126 @@ const RightSidebar: React.FC<RightSidebarProps> = ({
                         >
                           U
                         </button>
+                      </div>
+                    </div>
+                  </CollapsibleSection>
+                )}
+
+                {/* Alignment Tools */}
+                {hasSelection && (
+                  <CollapsibleSection id="alignment-tools" title="Alignment & Distribution">
+                    <div className="space-y-4">
+                      {/* Object Alignment */}
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">Align Objects</label>
+                        <div className="grid grid-cols-3 gap-1">
+                          <button
+                            onClick={() => onObjectAlign?.('left')}
+                            className="p-2 text-xs bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded transition-colors"
+                            title="Align Left"
+                          >
+                            ⬅️
+                          </button>
+                          <button
+                            onClick={() => onObjectAlign?.('center')}
+                            className="p-2 text-xs bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded transition-colors"
+                            title="Align Center"
+                          >
+                            ↔️
+                          </button>
+                          <button
+                            onClick={() => onObjectAlign?.('right')}
+                            className="p-2 text-xs bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded transition-colors"
+                            title="Align Right"
+                          >
+                            ➡️
+                          </button>
+                          <button
+                            onClick={() => onObjectAlign?.('top')}
+                            className="p-2 text-xs bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded transition-colors"
+                            title="Align Top"
+                          >
+                            ⬆️
+                          </button>
+                          <button
+                            onClick={() => onObjectAlign?.('middle')}
+                            className="p-2 text-xs bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded transition-colors"
+                            title="Align Middle"
+                          >
+                            ↕️
+                          </button>
+                          <button
+                            onClick={() => onObjectAlign?.('bottom')}
+                            className="p-2 text-xs bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded transition-colors"
+                            title="Align Bottom"
+                          >
+                            ⬇️
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Distribution */}
+                      {selectedObjects.length > 2 && (
+                        <div>
+                          <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">Distribute Objects</label>
+                          <div className="grid grid-cols-2 gap-2">
+                            <button
+                              onClick={() => onObjectDistribute?.('horizontal')}
+                              className="px-2 py-1 text-xs bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded transition-colors"
+                            >
+                              Horizontally
+                            </button>
+                            <button
+                              onClick={() => onObjectDistribute?.('vertical')}
+                              className="px-2 py-1 text-xs bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded transition-colors"
+                            >
+                              Vertically
+                            </button>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Smart Spacing */}
+                      {selectedObjects.length > 1 && (
+                        <div>
+                          <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">Smart Spacing</label>
+                          <div className="grid grid-cols-2 gap-2">
+                            <button
+                              onClick={() => onSmartSpacing?.('horizontal')}
+                              className="px-2 py-1 text-xs bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 hover:bg-blue-200 dark:hover:bg-blue-800 rounded transition-colors"
+                            >
+                              Match H-Space
+                            </button>
+                            <button
+                              onClick={() => onSmartSpacing?.('vertical')}
+                              className="px-2 py-1 text-xs bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300 hover:bg-blue-200 dark:hover:bg-blue-800 rounded transition-colors"
+                            >
+                              Match V-Space
+                            </button>
+                          </div>
+                          <div className="mt-2 text-xs text-gray-500 dark:text-gray-400">
+                            Automatically detect and apply consistent spacing between objects
+                          </div>
+                        </div>
+                      )}
+
+                      {/* Canvas Alignment */}
+                      <div>
+                        <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-2">Align to Canvas</label>
+                        <div className="grid grid-cols-2 gap-2">
+                          <button
+                            onClick={() => onCanvasAlign?.('center')}
+                            className="px-2 py-1 text-xs bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded transition-colors"
+                          >
+                            Center Canvas
+                          </button>
+                          <button
+                            onClick={() => onCanvasAlign?.('edges')}
+                            className="px-2 py-1 text-xs bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 rounded transition-colors"
+                          >
+                            Align to Edges
+                          </button>
+                        </div>
                       </div>
                     </div>
                   </CollapsibleSection>

@@ -14,7 +14,10 @@ import {
   SnapConfiguration,
   RulerConfiguration,
   ExportOptions,
-  ImportOptions
+  ImportOptions,
+  GridType,
+  BackgroundPatternType,
+  CanvasSizePreset
 } from '../types/canvas';
 import { 
   ToolType, 
@@ -201,15 +204,24 @@ export const useFabricCanvas = (options: UseFabricCanvasOptions = {}): UseFabric
   const [gridConfig, setGridConfig] = useState<GridConfiguration>({
     enabled: gridEnabled,
     size: gridSize,
+    type: 'lines' as GridType,
     subdivisions: 5,
     color: '#e5e5e5',
     opacity: 0.5,
     snapToGrid: snapToGrid,
+    snapToSubGrid: false,
     snapTolerance: 5,
     majorLineColor: '#cccccc',
     minorLineColor: '#e5e5e5',
     majorLineOpacity: 0.8,
-    minorLineOpacity: 0.4
+    minorLineOpacity: 0.4,
+    majorLineWidth: 1,
+    minorLineWidth: 0.5,
+    adaptiveZoom: true,
+    showOrigin: true,
+    originColor: '#ef4444',
+    showLabels: false,
+    labelInterval: 5
   });
 
   // Ruler configuration
@@ -223,7 +235,18 @@ export const useFabricCanvas = (options: UseFabricCanvasOptions = {}): UseFabric
     tickColor: '#666666',
     majorTickLength: 12,
     minorTickLength: 6,
-    labelOffset: 2
+    labelOffset: 2,
+    showGuides: true,
+    guidesColor: '#3b82f6',
+    guidesOpacity: 0.5,
+    snapToGuides: true,
+    guidesTolerance: 3,
+    enableMeasurement: false,
+    measurementColor: '#ef4444',
+    measurementTextColor: '#1f2937',
+    measurementLineWidth: 1,
+    showMultipleUnits: false,
+    secondaryUnit: 'mm'
   });
 
   // Selection state
@@ -295,14 +318,7 @@ export const useFabricCanvas = (options: UseFabricCanvasOptions = {}): UseFabric
 
       // Initialize grid if enabled
       if (gridConfig.enabled) {
-        gridUtils.drawGrid(canvas, {
-          enabled: true,
-          size: gridConfig.size,
-          color: gridConfig.color,
-          opacity: gridConfig.opacity,
-          style: 'lines',
-          subdivisions: gridConfig.subdivisions
-        });
+        gridUtils.drawGrid(canvas, gridConfig);
       }
 
       // Setup performance monitoring
@@ -425,12 +441,7 @@ export const useFabricCanvas = (options: UseFabricCanvasOptions = {}): UseFabric
     
     // Update grid if enabled
     if (gridConfig.enabled) {
-      gridUtils.drawGrid(canvas, {
-        enabled: true,
-        size: gridConfig.size,
-        color: gridConfig.color,
-        opacity: gridConfig.opacity
-      });
+      gridUtils.drawGrid(canvas, gridConfig);
     }
 
     debouncedUpdateCanvasState({ isDirty: true });
@@ -453,12 +464,8 @@ export const useFabricCanvas = (options: UseFabricCanvasOptions = {}): UseFabric
     
     // Update grid with new zoom
     if (gridConfig.enabled) {
-      gridUtils.drawGrid(canvas, {
-        enabled: true,
-        size: gridConfig.size * clampedZoom,
-        color: gridConfig.color,
-        opacity: gridConfig.opacity
-      });
+      const zoomedConfig = { ...gridConfig, size: gridConfig.size * clampedZoom };
+      gridUtils.drawGrid(canvas, zoomedConfig);
     }
 
     canvas.renderAll();
@@ -486,12 +493,7 @@ export const useFabricCanvas = (options: UseFabricCanvasOptions = {}): UseFabric
     
     if (canvasRef.current) {
       if (enabled) {
-        gridUtils.drawGrid(canvasRef.current, {
-          enabled: true,
-          size: gridConfig.size,
-          color: gridConfig.color,
-          opacity: gridConfig.opacity
-        });
+        gridUtils.drawGrid(canvasRef.current, gridConfig);
       } else {
         gridUtils.removeGrid(canvasRef.current);
       }
@@ -502,12 +504,8 @@ export const useFabricCanvas = (options: UseFabricCanvasOptions = {}): UseFabric
     setGridConfig(prev => ({ ...prev, size }));
     
     if (canvasRef.current && gridConfig.enabled) {
-      gridUtils.drawGrid(canvasRef.current, {
-        enabled: true,
-        size,
-        color: gridConfig.color,
-        opacity: gridConfig.opacity
-      });
+      const updatedConfig = { ...gridConfig, size };
+      gridUtils.drawGrid(canvasRef.current, updatedConfig);
     }
   }, [gridConfig.enabled, gridConfig.color, gridConfig.opacity]);
 
@@ -523,12 +521,8 @@ export const useFabricCanvas = (options: UseFabricCanvasOptions = {}): UseFabric
     setGridConfig(prev => ({ ...prev, ...config }));
     
     if (canvasRef.current && gridConfig.enabled) {
-      gridUtils.drawGrid(canvasRef.current, {
-        enabled: true,
-        size: config.size || gridConfig.size,
-        color: config.color || gridConfig.color,
-        opacity: config.opacity || gridConfig.opacity
-      });
+      const updatedConfig = { ...gridConfig, ...config };
+      gridUtils.drawGrid(canvasRef.current, updatedConfig);
     }
   }, [gridConfig]);
 
@@ -721,14 +715,14 @@ export const useFabricCanvas = (options: UseFabricCanvasOptions = {}): UseFabric
   }, []);
 
   const createQRCode = useCallback(async (data: string, options: any = {}): Promise<fabric.Image> => {
-    const qrCodeDataUrl = await generateQRCode(data, {
+    const qrCodeResult = await generateQRCode(data, {
       width: options.size || 100,
       height: options.size || 100,
       ...options
     });
     
     return new Promise((resolve) => {
-      fabric.Image.fromURL(qrCodeDataUrl, (img) => {
+      fabric.Image.fromURL(qrCodeResult.dataUrl, (img) => {
         img.set({
           left: 100,
           top: 100,
@@ -751,9 +745,9 @@ export const useFabricCanvas = (options: UseFabricCanvasOptions = {}): UseFabric
   }, []);
 
   const createUUID = useCallback(async (options: any = {}): Promise<fabric.Text> => {
-    const uuid = generateUUID(options);
+    const uuidResult = generateUUID(options);
     
-    const textObj = new fabric.Text(uuid, {
+    const textObj = new fabric.Text(uuidResult.uuid, {
       left: 100,
       top: 100,
       fontFamily: 'Monaco, monospace',
