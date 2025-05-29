@@ -33,6 +33,7 @@ export interface CanvasAreaProps {
   onToggleRightPanel: () => void;
   theme: 'light' | 'dark';
   onThemeToggle: () => void;
+  onCanvasRefReady?: (canvasRef: React.RefObject<FabricCanvasRef | null>) => void;
 }
 
 /**
@@ -47,6 +48,7 @@ export function CanvasArea({
   onToggleRightPanel,
   theme,
   onThemeToggle,
+  onCanvasRefReady,
 }: CanvasAreaProps) {
   const canvasRef = useRef<FabricCanvasRef>(null);
   const [canvasState, setCanvasState] = useState({
@@ -62,6 +64,13 @@ export function CanvasArea({
   
   const [viewMode, setViewMode] = useState<'edit' | 'preview'>('edit');
   const [isFullscreen, setIsFullscreen] = useState(false);
+
+  // Notify parent when canvas reference is ready
+  useEffect(() => {
+    if (onCanvasRefReady) {
+      onCanvasRefReady(canvasRef);
+    }
+  }, [onCanvasRefReady]);
 
   // Canvas control handlers
   const handleZoomIn = () => {
@@ -349,54 +358,9 @@ export function CanvasArea({
           </div>
         </div>
 
-        {/* Canvas Overlay Information */}
-        <div className="absolute top-4 left-4 bg-white dark:bg-gray-800 rounded-lg shadow-md p-3 text-xs text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-700">
-          <div className="space-y-1">
-            <div className="flex items-center justify-between">
-              <span>Canvas:</span>
-              <span className="font-mono">{canvasState.width}×{canvasState.height} {canvasState.unit}</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span>Zoom:</span>
-              <span className="font-mono">{Math.round(canvasState.zoom * 100)}%</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span>Mode:</span>
-              <span className="capitalize">{viewMode}</span>
-            </div>
-          </div>
-        </div>
+        {/* Information panel removed to avoid redundancy */}
 
-        {/* Shortcuts Help */}
-        <div className="absolute bottom-4 right-4 bg-white dark:bg-gray-800 rounded-lg shadow-md p-3 text-xs text-gray-600 dark:text-gray-400 border border-gray-200 dark:border-gray-700 max-w-xs">
-          <div className="font-medium mb-2">Quick Shortcuts</div>
-          <div className="space-y-1">
-            <div className="flex justify-between">
-              <span>Pan:</span>
-              <kbd className="bg-gray-100 dark:bg-gray-700 px-1 rounded">Space + Drag</kbd>
-            </div>
-            <div className="flex justify-between">
-              <span>Zoom:</span>
-              <kbd className="bg-gray-100 dark:bg-gray-700 px-1 rounded">Ctrl + Scroll</kbd>
-            </div>
-            <div className="flex justify-between">
-              <span>Select All:</span>
-              <kbd className="bg-gray-100 dark:bg-gray-700 px-1 rounded">Ctrl + A</kbd>
-            </div>
-            <div className="flex justify-between">
-              <span>Duplicate:</span>
-              <kbd className="bg-gray-100 dark:bg-gray-700 px-1 rounded">Ctrl + D</kbd>
-            </div>
-            <div className="flex justify-between">
-              <span>Delete:</span>
-              <kbd className="bg-gray-100 dark:bg-gray-700 px-1 rounded">Del</kbd>
-            </div>
-            <div className="flex justify-between">
-              <span>Undo:</span>
-              <kbd className="bg-gray-100 dark:bg-gray-700 px-1 rounded">Ctrl + Z</kbd>
-            </div>
-          </div>
-        </div>
+        {/* Shortcuts Help panel removed to declutter UI and avoid redundancy */}
       </div>
     </div>
   );

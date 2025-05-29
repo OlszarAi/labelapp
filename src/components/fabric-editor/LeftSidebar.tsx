@@ -2,7 +2,7 @@
 
 "use client";
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Type, 
   QrCode, 
@@ -17,14 +17,20 @@ import {
   X,
   Menu,
   Palette,
-  Layers
+  Layers,
+  ArrowLeft
 } from 'lucide-react';
+import { FabricCanvasRef } from './FabricCanvas';
+import { TextTool } from './elements/TextTool';
+import { QRCodeTool } from './elements/QRCodeTool';
+import { UUIDTool } from './elements/UUIDTool';
 
 export interface LeftSidebarProps {
   collapsed: boolean;
   onToggleCollapse: () => void;
   onClose: () => void;
   theme: 'light' | 'dark';
+  canvasRef: React.RefObject<FabricCanvasRef | null> | null;
 }
 
 interface ToolSection {
@@ -52,10 +58,12 @@ export function LeftSidebar({
   onToggleCollapse,
   onClose,
   theme,
+  canvasRef,
 }: LeftSidebarProps) {
   const [expandedSections, setExpandedSections] = useState<Set<string>>(
     new Set(['elements', 'templates'])
   );
+  const [activeTool, setActiveTool] = useState<string | null>(null);
 
   const toggleSection = (sectionId: string) => {
     const newExpanded = new Set(expandedSections);
@@ -67,10 +75,26 @@ export function LeftSidebar({
     setExpandedSections(newExpanded);
   };
 
-  // Tool handlers (to be implemented with actual functionality)
-  const handleAddText = () => console.log('Add text element');
-  const handleAddQRCode = () => console.log('Add QR code element');
-  const handleAddUUID = () => console.log('Add UUID element');
+  const handleToolSelect = (toolId: string) => {
+    setActiveTool(activeTool === toolId ? null : toolId);
+  };
+
+  const handleBackToTools = () => {
+    setActiveTool(null);
+  };
+
+  const handleElementCreated = () => {
+    // Optionally close the tool panel after creating an element
+    // setActiveTool(null);
+  };
+
+  // Get the canvas instance
+  const canvas = canvasRef?.current?.canvasState?.canvas || null;
+
+  // Tool handlers
+  const handleAddText = () => handleToolSelect('text');
+  const handleAddQRCode = () => handleToolSelect('qrcode');
+  const handleAddUUID = () => handleToolSelect('uuid');
   const handleAddRectangle = () => console.log('Add rectangle shape');
   const handleAddCircle = () => console.log('Add circle shape');
   const handleAddImage = () => console.log('Add image element');
@@ -211,7 +235,13 @@ export function LeftSidebar({
                 return (
                   <button
                     key={tool.id}
-                    onClick={tool.onClick}
+                    onClick={() => {
+                      tool.onClick();
+                      // If it's an element tool, expand the sidebar to show the tool panel
+                      if (['text', 'qrcode', 'uuid'].includes(tool.id)) {
+                        onToggleCollapse();
+                      }
+                    }}
                     className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors mb-1 mx-auto"
                     title={`${tool.name}${tool.shortcut ? ` (${tool.shortcut})` : ''}`}
                   >
@@ -251,66 +281,104 @@ export function LeftSidebar({
 
       {/* Content */}
       <div className="flex-1 overflow-y-auto">
-        <div className="p-2">
-          {toolSections.map(section => {
-            const SectionIcon = section.icon;
-            const isExpanded = expandedSections.has(section.id);
-            
-            return (
-              <div key={section.id} className="mb-4">
-                {/* Section Header */}
-                <button
-                  onClick={() => toggleSection(section.id)}
-                  className="w-full flex items-center justify-between p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
-                >
-                  <div className="flex items-center space-x-2">
-                    <SectionIcon className="w-4 h-4 text-gray-500 dark:text-gray-400" />
-                    <span className="font-medium text-sm">{section.title}</span>
-                  </div>
-                  {isExpanded ? (
-                    <ChevronDown className="w-4 h-4 text-gray-400" />
-                  ) : (
-                    <ChevronRight className="w-4 h-4 text-gray-400" />
-                  )}
-                </button>
+        {activeTool ? (
+          <div className="h-full">
+            {/* Tool Panel Header */}
+            <div className="flex items-center p-4 border-b border-gray-200 dark:border-gray-700">
+              <button
+                onClick={handleBackToTools}
+                className="p-1.5 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors mr-2"
+                title="Back to tools"
+              >
+                <ArrowLeft className="w-4 h-4" />
+              </button>
+              <h3 className="text-sm font-medium capitalize">{activeTool} Tool</h3>
+            </div>
 
-                {/* Section Content */}
-                {isExpanded && (
-                  <div className="mt-2 space-y-1">
-                    {section.tools.map(tool => {
-                      const ToolIcon = tool.icon;
-                      return (
-                        <button
-                          key={tool.id}
-                          onClick={tool.onClick}
-                          className="w-full flex items-center space-x-3 p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors group"
-                          title={tool.description}
-                        >
-                          <div className="flex-shrink-0">
-                            <ToolIcon className="w-4 h-4 text-gray-500 dark:text-gray-400 group-hover:text-blue-500 transition-colors" />
-                          </div>
-                          <div className="flex-1 text-left">
-                            <div className="flex items-center justify-between">
-                              <span className="text-sm font-medium">{tool.name}</span>
-                              {tool.shortcut && (
-                                <kbd className="px-1.5 py-0.5 text-xs bg-gray-100 dark:bg-gray-700 rounded border">
-                                  {tool.shortcut}
-                                </kbd>
-                              )}
+            {/* Active Tool Content */}
+            <div className="p-4">
+              {activeTool === 'text' && (
+                <TextTool
+                  canvas={canvas}
+                  onElementCreated={handleElementCreated}
+                />
+              )}
+              {activeTool === 'qrcode' && (
+                <QRCodeTool
+                  canvas={canvas}
+                  onElementCreated={handleElementCreated}
+                />
+              )}
+              {activeTool === 'uuid' && (
+                <UUIDTool
+                  canvas={canvas}
+                  onElementCreated={handleElementCreated}
+                />
+              )}
+            </div>
+          </div>
+        ) : (
+          <div className="p-2">
+            {toolSections.map(section => {
+              const SectionIcon = section.icon;
+              const isExpanded = expandedSections.has(section.id);
+              
+              return (
+                <div key={section.id} className="mb-4">
+                  {/* Section Header */}
+                  <button
+                    onClick={() => toggleSection(section.id)}
+                    className="w-full flex items-center justify-between p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
+                  >
+                    <div className="flex items-center space-x-2">
+                      <SectionIcon className="w-4 h-4 text-gray-500 dark:text-gray-400" />
+                      <span className="font-medium text-sm">{section.title}</span>
+                    </div>
+                    {isExpanded ? (
+                      <ChevronDown className="w-4 h-4 text-gray-400" />
+                    ) : (
+                      <ChevronRight className="w-4 h-4 text-gray-400" />
+                    )}
+                  </button>
+
+                  {/* Section Content */}
+                  {isExpanded && (
+                    <div className="mt-2 space-y-1">
+                      {section.tools.map(tool => {
+                        const ToolIcon = tool.icon;
+                        return (
+                          <button
+                            key={tool.id}
+                            onClick={tool.onClick}
+                            className="w-full flex items-center space-x-3 p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors group"
+                            title={tool.description}
+                          >
+                            <div className="flex-shrink-0">
+                              <ToolIcon className="w-4 h-4 text-gray-500 dark:text-gray-400 group-hover:text-blue-500 transition-colors" />
                             </div>
-                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
-                              {tool.description}
-                            </p>
-                          </div>
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
+                            <div className="flex-1 text-left">
+                              <div className="flex items-center justify-between">
+                                <span className="text-sm font-medium">{tool.name}</span>
+                                {tool.shortcut && (
+                                  <kbd className="px-1.5 py-0.5 text-xs bg-gray-100 dark:bg-gray-700 rounded border">
+                                    {tool.shortcut}
+                                  </kbd>
+                                )}
+                              </div>
+                              <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
+                                {tool.description}
+                              </p>
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
 
       {/* Footer */}

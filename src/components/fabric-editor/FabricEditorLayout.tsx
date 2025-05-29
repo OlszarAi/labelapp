@@ -6,6 +6,7 @@ import React, { useState, useCallback, useRef, useEffect } from 'react';
 import LeftSidebar from './LeftSidebar';
 import RightSidebar from './RightSidebar';
 import CanvasArea from './CanvasArea';
+import { FabricCanvasRef } from './FabricCanvas';
 
 export interface FabricEditorLayoutProps {
   projectId?: string;
@@ -51,9 +52,15 @@ export function FabricEditorLayout({
   const [panelState, setPanelState] = useState<PanelState>(DEFAULT_PANEL_STATE);
   const [isDragging, setIsDragging] = useState<'left' | 'right' | null>(null);
   const [theme, setTheme] = useState<'light' | 'dark'>('light');
+  const [canvasRef, setCanvasRef] = useState<React.RefObject<FabricCanvasRef | null> | null>(null);
   const layoutRef = useRef<HTMLDivElement>(null);
   const dragStartX = useRef<number>(0);
   const dragStartWidth = useRef<number>(0);
+
+  // Canvas reference callback
+  const handleCanvasRefReady = useCallback((ref: React.RefObject<FabricCanvasRef | null>) => {
+    setCanvasRef(ref);
+  }, []);
 
   // Calculate panel dimensions
   const leftPanelWidth = panelState.leftSidebar.visible 
@@ -209,6 +216,7 @@ export function FabricEditorLayout({
               onToggleCollapse={collapseLeftSidebar}
               onClose={toggleLeftSidebar}
               theme={theme}
+              canvasRef={canvasRef}
             />
           </div>
           
@@ -234,6 +242,7 @@ export function FabricEditorLayout({
           onToggleRightPanel={toggleRightSidebar}
           theme={theme}
           onThemeToggle={() => setTheme(prev => prev === 'light' ? 'dark' : 'light')}
+          onCanvasRefReady={handleCanvasRefReady}
         />
       </div>
 
@@ -263,26 +272,16 @@ export function FabricEditorLayout({
         </>
       )}
 
-      {/* Status Bar */}
-      <div className="fixed bottom-0 left-0 right-0 bg-gray-100 dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 px-4 py-2 text-sm text-gray-600 dark:text-gray-400 flex items-center justify-between z-10">
-        <div className="flex items-center space-x-4">
-          <span>Canvas: 100mm × 50mm</span>
-          <span>Zoom: 100%</span>
-          <span>Objects: 0</span>
-        </div>
-        
+      {/* Minimal Status Bar */}
+      <div className="fixed bottom-0 left-0 right-0 bg-gray-100 dark:bg-gray-800 border-t border-gray-200 dark:border-gray-700 px-4 py-1 text-xs text-gray-500 dark:text-gray-400 flex items-center justify-end z-10">
         <div className="flex items-center space-x-2">
-          <div className="flex items-center space-x-1 text-xs">
+          <div className="flex items-center space-x-1">
             <kbd className="px-1 py-0.5 bg-gray-200 dark:bg-gray-700 rounded">Ctrl+1</kbd>
-            <span>Toggle Tools</span>
+            <span>Tools</span>
           </div>
-          <div className="flex items-center space-x-1 text-xs">
+          <div className="flex items-center space-x-1">
             <kbd className="px-1 py-0.5 bg-gray-200 dark:bg-gray-700 rounded">Ctrl+2</kbd>
-            <span>Toggle Properties</span>
-          </div>
-          <div className="flex items-center space-x-1 text-xs">
-            <kbd className="px-1 py-0.5 bg-gray-200 dark:bg-gray-700 rounded">Space+Drag</kbd>
-            <span>Pan</span>
+            <span>Properties</span>
           </div>
         </div>
       </div>

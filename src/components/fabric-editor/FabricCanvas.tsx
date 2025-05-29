@@ -208,23 +208,14 @@ const FabricCanvas = React.forwardRef<FabricCanvasRef, FabricCanvasProps>(({
           }}
         />
 
-        {/* Canvas Info Overlay */}
+        {/* Canvas Info Overlay - Only show objects count */}
         {canvasState.isInitialized && (
-          <div className="absolute bottom-4 right-4 bg-white dark:bg-gray-800 rounded-lg shadow-md px-3 py-2 text-xs text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-gray-700">
-            <div className="flex items-center space-x-4">
-              <div>
-                Size: {width} × {height} {unit}
-              </div>
-              <div>
-                Zoom: {Math.round(canvasState.zoom * 100)}%
-              </div>
-              <div>
-                Objects: {canvasActions.getCanvasObjects().length}
-              </div>
-              {canvasState.selectedObjects.length > 0 && (
-                <div>
-                  Selected: {canvasState.selectedObjects.length}
-                </div>
+          <div className="absolute bottom-4 right-4 bg-white dark:bg-gray-800 rounded-lg shadow-md px-3 py-2 text-xs text-gray-600 dark:text-gray-300 border border-gray-200 dark:border-gray-700 opacity-75 hover:opacity-100 transition-opacity">
+            <div className="flex items-center space-x-2">
+              {canvasState.selectedObjects.length > 0 ? (
+                <div>Selected: {canvasState.selectedObjects.length}</div>
+              ) : (
+                <div>Objects: {canvasActions.getCanvasObjects().length}</div>
               )}
             </div>
           </div>
@@ -240,8 +231,8 @@ const FabricCanvas = React.forwardRef<FabricCanvasRef, FabricCanvasProps>(({
           </div>
         )}
 
-        {/* Keyboard Shortcuts Help */}
-        <div className="absolute top-4 left-4 text-xs text-gray-500 dark:text-gray-400 bg-white dark:bg-gray-800 rounded px-2 py-1 shadow-sm border border-gray-200 dark:border-gray-700 opacity-75 hover:opacity-100 transition-opacity">
+        {/* Keyboard Shortcuts Help - Hidden by default, shows on hover */}
+        <div className="absolute top-4 left-4 text-xs text-gray-500 dark:text-gray-400 bg-white dark:bg-gray-800 rounded px-2 py-1 shadow-sm border border-gray-200 dark:border-gray-700 opacity-0 hover:opacity-90 transition-opacity">
           <div className="space-y-1">
             <div>Space + Drag: Pan</div>
             <div>Mouse Wheel: Zoom</div>
@@ -254,77 +245,7 @@ const FabricCanvas = React.forwardRef<FabricCanvasRef, FabricCanvasProps>(({
         </div>
       </div>
 
-      {/* Canvas Controls */}
-      <div className="absolute bottom-4 left-4 flex items-center space-x-2">
-        {/* Zoom Controls */}
-        <div className="bg-white dark:bg-gray-800 rounded-lg shadow-md border border-gray-200 dark:border-gray-700 flex items-center">
-          <button
-            onClick={canvasActions.zoomOut}
-            disabled={canvasState.zoom <= 0.1}
-            className="p-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed rounded-l-lg transition-colors"
-            title="Zoom Out"
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 12H4" />
-            </svg>
-          </button>
-          
-          <div className="px-3 py-2 text-xs text-gray-600 dark:text-gray-300 border-x border-gray-200 dark:border-gray-700 min-w-[60px] text-center">
-            {Math.round(canvasState.zoom * 100)}%
-          </div>
-          
-          <button
-            onClick={canvasActions.zoomIn}
-            disabled={canvasState.zoom >= 5}
-            className="p-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            title="Zoom In"
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-            </svg>
-          </button>
-          
-          <button
-            onClick={canvasActions.fitToScreen}
-            className="p-2 text-gray-600 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-r-lg transition-colors"
-            title="Fit to Screen"
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 8V4h4M20 8V4h-4m4 12v4h-4M4 16v4h4" />
-            </svg>
-          </button>
-        </div>
-
-        {/* Grid Toggle */}
-        <button
-          onClick={() => canvasActions.toggleGrid()}
-          className={`p-2 rounded-lg shadow-md border transition-colors ${
-            canvasState.gridOptions.enabled
-              ? 'bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-300 border-blue-200 dark:border-blue-800'
-              : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700'
-          }`}
-          title="Toggle Grid"
-        >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M3 14h18M10 3v18M14 3v18" />
-          </svg>
-        </button>
-
-        {/* Rulers Toggle */}
-        <button
-          onClick={() => canvasActions.toggleRulers()}
-          className={`p-2 rounded-lg shadow-md border transition-colors ${
-            canvasState.rulerOptions.enabled
-              ? 'bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-300 border-blue-200 dark:border-blue-800'
-              : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-700'
-          }`}
-          title="Toggle Rulers"
-        >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19V5l7-4v18l-7-4 6-8-6-8" />
-          </svg>
-        </button>
-      </div>
+      {/* Canvas Controls removed to avoid redundancy with top toolbar */}
     </div>
   );
 });
