@@ -1,9 +1,11 @@
+// DEPRECATED: This file is part of the legacy editor and will be replaced by the new Fabric.js editor
+// Please use components from src/components/fabric-editor/ for new development
 "use client";
 
 import { useEffect, useRef } from 'react';
 import { v4 as uuidv4 } from 'uuid';
-import ColorPickerTab from './ColorPickerTab';
-import TextFormattingControls from './TextFormattingControls';
+import ColorPickerTab from '../ui/legacy/ColorPickerTab';
+import TextFormattingControls from '../ui/legacy/TextFormattingControls';
 
 interface LabelElement {
   id: string;

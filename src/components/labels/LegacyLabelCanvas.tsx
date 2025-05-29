@@ -1,3 +1,5 @@
+// DEPRECATED: This file is part of the legacy editor and will be replaced by the new Fabric.js editor
+// Please use components from src/components/fabric-editor/ for new development
 "use client";
 
 import { useState, useRef, useEffect } from 'react';
