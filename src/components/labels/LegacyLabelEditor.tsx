@@ -5,8 +5,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { QRCodeSVG } from 'qrcode.react';
-import { Label, LabelElement } from '@/lib/types/label.types';
-import { LabelStorageService } from '@/services/labelStorage';
+import { Label, LabelElement, LabelStorageService } from '@/services/labelStorage';
 
 interface LabelEditorProps {
   labelSettings: {

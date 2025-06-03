@@ -90,6 +90,9 @@ export class FabricUtils {
       devicePixelRatio: window.devicePixelRatio || 1,
     });
 
+    // Fix canvas positioning issue - ensure both canvases are properly positioned
+    this.fixCanvasPositioning(canvas);
+
     // Configure custom selection styling
     this.configureSelectionStyling(canvas);
 
@@ -285,11 +288,15 @@ export class FabricUtils {
    * Remove grid from canvas
    */
   static removeGrid(canvas: fabric.Canvas): void {
-    const objects = canvas.getObjects();
-    const grid = objects.find(obj => (obj as any).name === 'grid');
-    if (grid) {
-      canvas.remove(grid);
-      canvas.renderAll();
+    try {
+      const objects = canvas.getObjects();
+      const grid = objects.find(obj => (obj as any).name === 'grid');
+      if (grid) {
+        canvas.remove(grid);
+        canvas.renderAll();
+      }
+    } catch (error) {
+      console.warn('Error removing grid:', error);
     }
   }
 
@@ -468,20 +475,24 @@ export class FabricUtils {
    * Clean up event listeners and handlers
    */
   static cleanup(canvas: fabric.Canvas): void {
-    // Remove keyboard handler
-    const keydownHandler = (canvas as any).__keydownHandler;
-    if (keydownHandler) {
-      document.removeEventListener('keydown', keydownHandler);
-      delete (canvas as any).__keydownHandler;
-    }
+    try {
+      // Remove keyboard handler
+      const keydownHandler = (canvas as any).__keydownHandler;
+      if (keydownHandler) {
+        document.removeEventListener('keydown', keydownHandler);
+        delete (canvas as any).__keydownHandler;
+      }
 
-    // Remove snap to grid handler
-    if (this.snapToGridHandler) {
-      canvas.off('object:moving', this.snapToGridHandler);
-    }
+      // Remove snap to grid handler
+      if (this.snapToGridHandler) {
+        canvas.off('object:moving', this.snapToGridHandler);
+      }
 
-    // Remove grid
-    this.removeGrid(canvas);
+      // Remove grid
+      this.removeGrid(canvas);
+    } catch (error) {
+      console.warn('Error in FabricUtils.cleanup:', error);
+    }
   }
 
   /**
@@ -531,28 +542,28 @@ export class FabricUtils {
 
     const handleMouseDown = (opt: fabric.IEvent) => {
       if (isPanning) {
-        canvas.isDragging = true;
+        (canvas as any).isDragging = true;
         canvas.selection = false;
-        lastPosX = opt.e.clientX;
-        lastPosY = opt.e.clientY;
+        lastPosX = (opt.e as MouseEvent).clientX;
+        lastPosY = (opt.e as MouseEvent).clientY;
         canvas.defaultCursor = 'grabbing';
       }
     };
 
     const handleMouseMove = (opt: fabric.IEvent) => {
-      if (canvas.isDragging && isPanning) {
+      if ((canvas as any).isDragging && isPanning) {
         const vpt = canvas.viewportTransform!;
-        vpt[4] += opt.e.clientX - lastPosX;
-        vpt[5] += opt.e.clientY - lastPosY;
+        vpt[4] += (opt.e as MouseEvent).clientX - lastPosX;
+        vpt[5] += (opt.e as MouseEvent).clientY - lastPosY;
         canvas.requestRenderAll();
-        lastPosX = opt.e.clientX;
-        lastPosY = opt.e.clientY;
+        lastPosX = (opt.e as MouseEvent).clientX;
+        lastPosY = (opt.e as MouseEvent).clientY;
       }
     };
 
     const handleMouseUp = () => {
       if (isPanning) {
-        canvas.isDragging = false;
+        (canvas as any).isDragging = false;
         canvas.selection = true;
         canvas.defaultCursor = 'grab';
       }
@@ -578,14 +589,115 @@ export class FabricUtils {
    * Cleanup zoom and pan handlers
    */
   static cleanupZoomAndPan(canvas: fabric.Canvas): void {
-    const handlers = (canvas as any).__panHandlers;
-    if (handlers) {
-      document.removeEventListener('keydown', handlers.keydown);
-      document.removeEventListener('keyup', handlers.keyup);
-      canvas.off('mouse:down', handlers.mousedown);
-      canvas.off('mouse:move', handlers.mousemove);
-      canvas.off('mouse:up', handlers.mouseup);
-      delete (canvas as any).__panHandlers;
+    try {
+      const handlers = (canvas as any).__panHandlers;
+      if (handlers) {
+        document.removeEventListener('keydown', handlers.keydown);
+        document.removeEventListener('keyup', handlers.keyup);
+        canvas.off('mouse:down', handlers.mousedown);
+        canvas.off('mouse:move', handlers.mousemove);
+        canvas.off('mouse:up', handlers.mouseup);
+        delete (canvas as any).__panHandlers;
+      }
+    } catch (error) {
+      console.warn('Error cleaning up zoom and pan handlers:', error);
+    }
+  }
+
+  /**
+   * Fix canvas positioning issues that occur with Fabric.js dual canvas structure
+   */
+  static fixCanvasPositioning(canvas: fabric.Canvas): void {
+    // Get the canvas wrapper element
+    const wrapperElement = (canvas as any).wrapperEl;
+    if (!wrapperElement) {
+      return;
+    }
+
+    // Find both canvas elements
+    const lowerCanvas = wrapperElement.querySelector('.lower-canvas') as HTMLCanvasElement;
+    const upperCanvas = wrapperElement.querySelector('.upper-canvas') as HTMLCanvasElement;
+
+    if (lowerCanvas && upperCanvas) {
+      // Ensure both canvases have identical positioning and size
+      const canvasStyle = {
+        position: 'absolute' as const,
+        left: '0px',
+        top: '0px',
+        touchAction: 'none',
+        userSelect: 'none',
+        webkitUserSelect: 'none',
+      };
+
+      // Apply styles to both canvases
+      Object.assign(lowerCanvas.style, canvasStyle);
+      Object.assign(upperCanvas.style, canvasStyle);
+
+      // Proper z-index and visibility for dual canvas functionality
+      lowerCanvas.style.zIndex = '1';
+      lowerCanvas.style.opacity = '1';
+      lowerCanvas.style.pointerEvents = 'none';
+      
+      upperCanvas.style.zIndex = '2';
+      upperCanvas.style.opacity = '1';
+      upperCanvas.style.pointerEvents = 'auto';
+
+      // Ensure both canvases have exactly the same dimensions
+      const width = canvas.width + 'px';
+      const height = canvas.height + 'px';
+      
+      lowerCanvas.style.width = width;
+      lowerCanvas.style.height = height;
+      upperCanvas.style.width = width;
+      upperCanvas.style.height = height;
+
+      // Make sure the wrapper has proper positioning
+      wrapperElement.style.position = 'relative';
+      wrapperElement.style.display = 'inline-block';
+      wrapperElement.style.width = width;
+      wrapperElement.style.height = height;
+    }
+
+    // Force a re-render to ensure everything displays correctly
+    canvas.renderAll();
+  }
+
+  /**
+   * Alternative canvas fix for problematic cases - forces upper canvas to be transparent for interactions only
+   */
+  static forceCanvasInteractionFix(canvas: fabric.Canvas): void {
+    const wrapperElement = (canvas as any).wrapperEl;
+    if (!wrapperElement) return;
+
+    const lowerCanvas = wrapperElement.querySelector('.lower-canvas') as HTMLCanvasElement;
+    const upperCanvas = wrapperElement.querySelector('.upper-canvas') as HTMLCanvasElement;
+
+    if (lowerCanvas && upperCanvas) {
+      // Make upper canvas visible for selections and interactions
+      upperCanvas.style.setProperty('opacity', '1', 'important');
+      upperCanvas.style.setProperty('pointer-events', 'auto', 'important');
+      upperCanvas.style.setProperty('z-index', '2', 'important');
+      upperCanvas.style.setProperty('background', 'transparent', 'important');
+      upperCanvas.style.setProperty('visibility', 'visible', 'important');
+      upperCanvas.style.setProperty('display', 'block', 'important');
+      
+      // Ensure lower canvas is visible and properly positioned
+      lowerCanvas.style.setProperty('opacity', '1', 'important');
+      lowerCanvas.style.setProperty('pointer-events', 'none', 'important');
+      lowerCanvas.style.setProperty('z-index', '1', 'important');
+      lowerCanvas.style.setProperty('visibility', 'visible', 'important');
+      lowerCanvas.style.setProperty('display', 'block', 'important');
+
+      // Ensure both canvases are exactly aligned
+      lowerCanvas.style.setProperty('position', 'absolute', 'important');
+      upperCanvas.style.setProperty('position', 'absolute', 'important');
+      lowerCanvas.style.setProperty('left', '0px', 'important');
+      lowerCanvas.style.setProperty('top', '0px', 'important');
+      upperCanvas.style.setProperty('left', '0px', 'important');
+      upperCanvas.style.setProperty('top', '0px', 'important');
+      
+      // Force canvas to re-render
+      canvas.renderAll();
     }
   }
 }

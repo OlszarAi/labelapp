@@ -59,8 +59,8 @@ export interface ExportOptions {
 export interface UseFabricCanvasReturn {
   canvasState: CanvasState;
   canvasActions: CanvasActions;
-  canvasRef: React.RefObject<HTMLCanvasElement>;
-  containerRef: React.RefObject<HTMLDivElement>;
+  canvasRef: React.RefObject<HTMLCanvasElement | null>;
+  containerRef: React.RefObject<HTMLDivElement | null>;
 }
 
 const DEFAULT_GRID_OPTIONS: GridOptions = {
@@ -99,95 +99,140 @@ export function useFabricCanvas(): UseFabricCanvasReturn {
 
   // Initialize canvas
   const initializeCanvas = useCallback((element: HTMLCanvasElement, config: CanvasConfig) => {
+    // Always clean up any existing canvas first
     if (canvasState.canvas) {
-      // Clean up existing canvas
-      FabricUtils.cleanup(canvasState.canvas);
-      FabricUtils.cleanupZoomAndPan(canvasState.canvas);
-      canvasState.canvas.dispose();
+      try {
+        FabricUtils.cleanup(canvasState.canvas);
+        FabricUtils.cleanupZoomAndPan(canvasState.canvas);
+        canvasState.canvas.dispose();
+      } catch (error) {
+        console.warn('Error cleaning up canvas:', error);
+      }
     }
 
-    const canvas = FabricUtils.initializeCanvas(element, config);
+    // Clear any existing canvas elements in the container
+    if (element.parentElement) {
+      try {
+        const existingCanvases = element.parentElement.querySelectorAll('canvas');
+        existingCanvases.forEach((canvas, index) => {
+          if (canvas !== element && canvas.parentElement) {
+            canvas.parentElement.removeChild(canvas);
+          }
+        });
+      } catch (error) {
+        console.warn('Error cleaning up existing canvases:', error);
+      }
+    }
 
-    // Setup zoom and pan
-    FabricUtils.setupZoomAndPan(canvas);
+    try {
+      const canvas = FabricUtils.initializeCanvas(element, config);
+      
+      // Fix canvas positioning after creation
+      setTimeout(() => {
+        FabricUtils.forceCanvasInteractionFix(canvas);
+      }, 100);
 
-    // Setup grid
-    if (config.gridEnabled) {
-      FabricUtils.createGrid(canvas, {
-        enabled: config.gridEnabled,
-        size: config.gridSize || DEFAULT_GRID_OPTIONS.size,
-        color: config.gridColor || DEFAULT_GRID_OPTIONS.color,
-        opacity: DEFAULT_GRID_OPTIONS.opacity,
+      // Add a test object to verify the canvas is working
+      const testRect = new fabric.Rect({
+        left: 50,
+        top: 50,
+        width: 100,
+        height: 100,
+        fill: 'rgba(255, 0, 0, 0.5)',
+        stroke: 'red',
+        strokeWidth: 2,
       });
-    }
+      canvas.add(testRect);
 
-    // Setup snap to grid
-    if (config.snapToGrid) {
-      FabricUtils.setupSnapToGrid(
+      // Setup zoom and pan
+      FabricUtils.setupZoomAndPan(canvas);
+
+      // Setup grid
+      if (config.gridEnabled) {
+        FabricUtils.createGrid(canvas, {
+          enabled: config.gridEnabled,
+          size: config.gridSize || DEFAULT_GRID_OPTIONS.size,
+          color: config.gridColor || DEFAULT_GRID_OPTIONS.color,
+          opacity: DEFAULT_GRID_OPTIONS.opacity,
+        });
+      }
+
+      // Setup snap to grid
+      if (config.snapToGrid) {
+        FabricUtils.setupSnapToGrid(
+          canvas,
+          config.snapToGrid,
+          config.gridSize || DEFAULT_GRID_OPTIONS.size,
+          config.snapThreshold || 5
+        );
+      }
+
+      // Setup rulers
+      if (config.rulersEnabled && containerRef.current) {
+        FabricUtils.createRulers(containerRef.current, canvas, {
+          ...DEFAULT_RULER_OPTIONS,
+          unit: config.unit,
+        });
+      }
+
+      // Event listeners
+      canvas.on('selection:created', (e) => {
+        setCanvasState(prev => ({
+          ...prev,
+          selectedObjects: e.selected || [],
+        }));
+      });
+
+      canvas.on('selection:updated', (e) => {
+        setCanvasState(prev => ({
+          ...prev,
+          selectedObjects: e.selected || [],
+        }));
+      });
+
+      canvas.on('selection:cleared', () => {
+        setCanvasState(prev => ({
+          ...prev,
+          selectedObjects: [],
+        }));
+      });
+
+      canvas.on('object:added', () => {
+        // Force re-render to update state
+        setCanvasState(prev => ({ ...prev }));
+      });
+
+      canvas.on('object:removed', () => {
+        // Force re-render to update state
+        setCanvasState(prev => ({ ...prev }));
+      });
+
+      setCanvasState(prev => ({
+        ...prev,
         canvas,
-        config.snapToGrid,
-        config.gridSize || DEFAULT_GRID_OPTIONS.size,
-        config.snapThreshold || 5
-      );
+        isInitialized: true,
+        canvasSize: { width: config.width, height: config.height, unit: config.unit },
+        gridOptions: {
+          enabled: config.gridEnabled || false,
+          size: config.gridSize || DEFAULT_GRID_OPTIONS.size,
+          color: config.gridColor || DEFAULT_GRID_OPTIONS.color,
+          opacity: DEFAULT_GRID_OPTIONS.opacity,
+        },
+        rulerOptions: {
+          ...DEFAULT_RULER_OPTIONS,
+          enabled: config.rulersEnabled || false,
+          unit: config.unit,
+        },
+      }));
+    } catch (error) {
+      console.error('Error initializing canvas:', error);
+      // Set state to indicate initialization failed
+      setCanvasState(prev => ({
+        ...prev,
+        isInitialized: false,
+        canvas: null,
+      }));
     }
-
-    // Setup rulers
-    if (config.rulersEnabled && containerRef.current) {
-      FabricUtils.createRulers(containerRef.current, canvas, {
-        ...DEFAULT_RULER_OPTIONS,
-        unit: config.unit,
-      });
-    }
-
-    // Event listeners
-    canvas.on('selection:created', (e) => {
-      setCanvasState(prev => ({
-        ...prev,
-        selectedObjects: e.selected || [],
-      }));
-    });
-
-    canvas.on('selection:updated', (e) => {
-      setCanvasState(prev => ({
-        ...prev,
-        selectedObjects: e.selected || [],
-      }));
-    });
-
-    canvas.on('selection:cleared', () => {
-      setCanvasState(prev => ({
-        ...prev,
-        selectedObjects: [],
-      }));
-    });
-
-    canvas.on('object:added', () => {
-      // Force re-render to update state
-      setCanvasState(prev => ({ ...prev }));
-    });
-
-    canvas.on('object:removed', () => {
-      // Force re-render to update state
-      setCanvasState(prev => ({ ...prev }));
-    });
-
-    setCanvasState(prev => ({
-      ...prev,
-      canvas,
-      isInitialized: true,
-      canvasSize: { width: config.width, height: config.height, unit: config.unit },
-      gridOptions: {
-        enabled: config.gridEnabled || false,
-        size: config.gridSize || DEFAULT_GRID_OPTIONS.size,
-        color: config.gridColor || DEFAULT_GRID_OPTIONS.color,
-        opacity: DEFAULT_GRID_OPTIONS.opacity,
-      },
-      rulerOptions: {
-        ...DEFAULT_RULER_OPTIONS,
-        enabled: config.rulersEnabled || false,
-        unit: config.unit,
-      },
-    }));
   }, [canvasState.canvas]);
 
   // Update canvas size
@@ -221,7 +266,9 @@ export function useFabricCanvas(): UseFabricCanvasReturn {
     if (!canvasState.canvas) return;
 
     canvasState.canvas.setBackgroundColor(color, () => {
-      canvasState.canvas!.renderAll();
+      if (canvasState.canvas) {
+        canvasState.canvas.renderAll();
+      }
     });
   }, [canvasState.canvas]);
 
@@ -438,7 +485,7 @@ export function useFabricCanvas(): UseFabricCanvasReturn {
 
     const activeObject = canvasState.canvas.getActiveObject();
     if (activeObject) {
-      canvasState.canvas.sendBackward(activeObject);
+      canvasState.canvas.sendBackwards(activeObject);
       canvasState.canvas.renderAll();
     }
   }, [canvasState.canvas]);
@@ -548,12 +595,20 @@ export function useFabricCanvas(): UseFabricCanvasReturn {
   // Cleanup
   const cleanup = useCallback(() => {
     if (canvasState.canvas) {
-      FabricUtils.cleanup(canvasState.canvas);
-      FabricUtils.cleanupZoomAndPan(canvasState.canvas);
-      canvasState.canvas.dispose();
+      try {
+        FabricUtils.cleanup(canvasState.canvas);
+        FabricUtils.cleanupZoomAndPan(canvasState.canvas);
+        canvasState.canvas.dispose();
+      } catch (error) {
+        console.warn('Error during canvas cleanup:', error);
+      }
     }
     if (containerRef.current) {
-      FabricUtils.removeRulers(containerRef.current);
+      try {
+        FabricUtils.removeRulers(containerRef.current);
+      } catch (error) {
+        console.warn('Error removing rulers:', error);
+      }
     }
   }, [canvasState.canvas]);
 

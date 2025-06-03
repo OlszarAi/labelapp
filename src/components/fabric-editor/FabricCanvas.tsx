@@ -51,7 +51,7 @@ const FabricCanvas = React.forwardRef<FabricCanvasRef, FabricCanvasProps>(({
   const { canvasState, canvasActions, canvasRef, containerRef } = useFabricCanvas();
   const [isCanvasReady, setIsCanvasReady] = useState(false);
 
-  // Initialize canvas when component mounts
+  // Initialize canvas when component mounts - only once
   useEffect(() => {
     if (canvasRef.current && !canvasState.isInitialized) {
       canvasActions.initializeCanvas(canvasRef.current, {
@@ -68,21 +68,7 @@ const FabricCanvas = React.forwardRef<FabricCanvasRef, FabricCanvasProps>(({
       });
       setIsCanvasReady(true);
     }
-  }, [
-    canvasRef,
-    canvasState.isInitialized,
-    canvasActions,
-    width,
-    height,
-    unit,
-    backgroundColor,
-    gridEnabled,
-    gridSize,
-    gridColor,
-    rulersEnabled,
-    snapToGrid,
-    snapThreshold,
-  ]);
+  }, [canvasRef.current, canvasState.isInitialized]); // Only depend on canvas ref and initialization status
 
   // Setup event listeners for canvas changes
   useEffect(() => {
@@ -231,18 +217,7 @@ const FabricCanvas = React.forwardRef<FabricCanvasRef, FabricCanvasProps>(({
           </div>
         )}
 
-        {/* Keyboard Shortcuts Help - Hidden by default, shows on hover */}
-        <div className="absolute top-4 left-4 text-xs text-gray-500 dark:text-gray-400 bg-white dark:bg-gray-800 rounded px-2 py-1 shadow-sm border border-gray-200 dark:border-gray-700 opacity-0 hover:opacity-90 transition-opacity">
-          <div className="space-y-1">
-            <div>Space + Drag: Pan</div>
-            <div>Mouse Wheel: Zoom</div>
-            <div>Del: Delete</div>
-            <div>Esc: Deselect</div>
-            <div>Arrows: Move (Shift = 10px)</div>
-            <div>Ctrl+A: Select All</div>
-            <div>Ctrl+D: Duplicate</div>
-          </div>
-        </div>
+
       </div>
 
       {/* Canvas Controls removed to avoid redundancy with top toolbar */}

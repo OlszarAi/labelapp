@@ -148,12 +148,10 @@ export function CanvasArea({
   };
 
   const handleSelectionChange = (objects: fabric.Object[]) => {
-    console.log('Selection changed:', objects);
     // TODO: Communicate with right sidebar
   };
 
   const handleObjectModified = (object: fabric.Object) => {
-    console.log('Object modified:', object);
     // TODO: Update properties panel
   };
 
@@ -328,10 +326,10 @@ export function CanvasArea({
       </div>
 
       {/* Canvas Container */}
-      <div className="flex-1 relative overflow-hidden">
+      <div className="flex-1 relative">
         <div className="absolute inset-0 flex items-center justify-center p-8">
           <div 
-            className="relative bg-white dark:bg-gray-800 shadow-lg rounded-lg overflow-hidden"
+            className="relative bg-white dark:bg-gray-800 shadow-lg rounded-lg"
             style={{
               maxWidth: '100%',
               maxHeight: '100%',

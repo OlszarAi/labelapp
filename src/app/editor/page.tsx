@@ -6,8 +6,7 @@ import EditorSidebar from '@/components/labels/LegacyEditorSidebar';
 import LabelEditor from '@/components/labels/LegacyLabelEditor';
 import LabelPreview from '@/components/labels/LabelPreview';
 import { v4 as uuidv4 } from 'uuid';
-import { Label } from '@/lib/types/label.types';
-import { LabelStorageService } from '@/services/labelStorage';
+import { LabelStorageService, Label } from '@/services/labelStorage';
 import { useRouter, useSearchParams } from 'next/navigation';
 
 interface LabelElement {
