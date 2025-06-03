@@ -267,6 +267,7 @@ export function FabricEditorLayout({
               onToggleCollapse={collapseRightSidebar}
               onClose={toggleRightSidebar}
               theme={theme}
+              canvas={canvasRef?.current?.canvasState?.canvas || null}
             />
           </div>
         </>
