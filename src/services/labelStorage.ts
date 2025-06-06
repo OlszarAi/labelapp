@@ -4,9 +4,6 @@
  * Provides access to label projects from the API.
  */
 
-import { Label as LabelType, LabelCollection } from '@/lib/types/label.types';
-import { v4 as uuidv4 } from 'uuid';
-
 // Type definitions for stored label projects
 export interface SavedProject {
   id: string;
@@ -41,6 +38,7 @@ export interface LabelElement {
   value?: string;
   color?: string;
   rotation?: number;
+  fontSize?: number;
   properties?: any;
 }
 

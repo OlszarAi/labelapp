@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
-import { Label } from '@/lib/types/label.types';
+import { Label } from '@/services/labelStorage';
 import { motion } from 'framer-motion';
 
 interface LabelPreviewProps {

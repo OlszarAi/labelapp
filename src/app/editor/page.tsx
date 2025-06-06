@@ -2,8 +2,8 @@
 
 import { useState, useEffect, useRef, Suspense } from 'react';
 import Link from 'next/link';
-import EditorSidebar from '@/components/labels/LegacyEditorSidebar';
-import LabelEditor from '@/components/labels/LegacyLabelEditor';
+import EditorSidebar from '@/components/labels/EditorSidebar';
+import LabelEditor from '@/components/labels/LabelEditor';
 import LabelPreview from '@/components/labels/LabelPreview';
 import { v4 as uuidv4 } from 'uuid';
 import { LabelStorageService, Label } from '@/services/labelStorage';

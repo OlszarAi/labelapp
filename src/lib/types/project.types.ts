@@ -1,7 +1,7 @@
 /**
  * Legacy project types for backward compatibility
  */
-import { Label } from './label.types';
+import { Label } from '@/services/labelStorage';
 
 export interface Project {
   id: string;

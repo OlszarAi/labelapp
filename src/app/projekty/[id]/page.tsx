@@ -3,8 +3,7 @@
 import { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
 import { useRouter, useParams } from 'next/navigation';
-import { LabelStorageService, SavedProject } from '@/services/labelStorage';
-import { Label } from '@/lib/types/label.types';
+import { LabelStorageService, SavedProject, Label } from '@/services/labelStorage';
 import { useAuth } from '@/lib/hooks/useAuth';
 import { useOptimizedAnimations } from '@/lib/hooks/useOptimizedAnimations';
 import LabelPreview from '@/components/labels/LabelPreview';
