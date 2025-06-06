@@ -199,7 +199,7 @@ export default function Home() {
             <Link href="/projekty" className="text-gray-700 dark:text-gray-300 hover:text-purple-600 dark:hover:text-purple-400 transition-colors">
               Projekty
             </Link>
-            <Link href="/editor" className="text-gray-700 dark:text-gray-300 hover:text-purple-600 dark:hover:text-purple-400 transition-colors">
+            <Link href="/editor-legacy" className="text-gray-700 dark:text-gray-300 hover:text-purple-600 dark:hover:text-purple-400 transition-colors">
               Edytor
             </Link>
 
@@ -294,7 +294,7 @@ export default function Home() {
             </p>
             
             <div className={`flex flex-col sm:flex-row gap-4 justify-center mt-12 transition-all duration-1000 delay-300 ${initialLoad ? 'opacity-0 translate-y-8' : 'opacity-100 translate-y-0'}`}>
-              <Link href="/editor" className="w-full sm:w-auto">
+              <Link href="/editor-legacy" className="w-full sm:w-auto">
                 <ActionButton
                   title="Stwórz etykiety"
                   variant="primary"
@@ -470,7 +470,7 @@ export default function Home() {
             
             {/* Button below editor */}
             <div className="text-center mt-12">
-              <Link href="/editor">
+              <Link href="/editor-legacy">
                 <ActionButton 
                   title="Wypróbuj edytor" 
                   variant="primary"
@@ -495,7 +495,7 @@ export default function Home() {
               <p className="text-sm text-gray-600 dark:text-indigo-200/80 mt-2">© 2025 Label Generator. Wszystkie prawa zastrzeżone.</p>
             </div>
             <div className="flex gap-6">
-              <Link href="/editor" className="text-gray-600 dark:text-indigo-300 hover:text-purple-600 dark:hover:text-indigo-400 transition-colors">Edytor</Link>
+              <Link href="/editor-legacy" className="text-gray-600 dark:text-indigo-300 hover:text-purple-600 dark:hover:text-indigo-400 transition-colors">Edytor</Link>
               <Link href="/projekty" className="text-gray-600 dark:text-indigo-300 hover:text-purple-600 dark:hover:text-indigo-400 transition-colors">Projekty</Link>
               <Link href="#" className="text-gray-600 dark:text-indigo-300 hover:text-purple-600 dark:hover:text-indigo-400 transition-colors">Pomoc</Link>
             </div>

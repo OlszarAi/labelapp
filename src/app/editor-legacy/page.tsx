@@ -2,9 +2,9 @@
 
 import { useState, useEffect, useRef, Suspense } from 'react';
 import Link from 'next/link';
-import EditorSidebar from '@/components/labels/EditorSidebar';
-import LabelEditor from '@/components/labels/LabelEditor';
-import LabelPreview from '@/components/labels/LabelPreview';
+import EditorSidebar from '@/components/labels-legacy/EditorSidebar';
+import LabelEditor from '@/components/labels-legacy/LabelEditor';
+import LabelPreview from '@/components/labels-legacy/LabelPreview';
 import { v4 as uuidv4 } from 'uuid';
 import { LabelStorageService, Label } from '@/services/labelStorage';
 import { useRouter, useSearchParams } from 'next/navigation';
@@ -608,7 +608,7 @@ function EditorContent() {
             onLabelSelect={async (selectedLabelId) => {
               // Resetujemy stan komponentu i aktualizujemy URL bez odświeżania
               const timestamp = new Date().getTime();
-              const url = `/editor?projectId=${projectId}&labelId=${selectedLabelId}&nocache=${timestamp}`;
+              const url = `/editor-legacy?projectId=${projectId}&labelId=${selectedLabelId}&nocache=${timestamp}`;
               console.log(`[DEBUG] Przekierowuję do etykiety: ${selectedLabelId}`);
               
               // Aktualizujemy URL bez przeładowania strony
@@ -647,7 +647,7 @@ function EditorContent() {
               });
               // Aktualizujemy URL bez przeładowania strony
               if (projectId && typeof projectId === 'string') {
-                const url = `/editor?projectId=${projectId}`;
+                const url = `/editor-legacy?projectId=${projectId}`;
                 window.history.pushState({}, '', url);
               }
             }}

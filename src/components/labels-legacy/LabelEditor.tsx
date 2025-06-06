@@ -403,7 +403,7 @@ export default function LabelEditor({
       // Fallback - używamy router.push zamiast window.location.replace
       if (projectId) {
         const timestamp = new Date().getTime();
-        const url = `/editor?projectId=${projectId}&labelId=${labelId}&nocache=${timestamp}`;
+        const url = `/editor-legacy?projectId=${projectId}&labelId=${labelId}&nocache=${timestamp}`;
         console.log(`[DEBUG] Przekierowuję do: ${url}`);
         
         // Używamy pushState aby zachować scroll position
@@ -437,7 +437,7 @@ export default function LabelEditor({
     } else {
       // Fallback - przeładowanie strony bez labelId
       if (projectId) {
-        const url = `/editor?projectId=${projectId}`;
+        const url = `/editor-legacy?projectId=${projectId}`;
         // Używamy routera zamiast window.location, aby uniknąć pełnego odświeżenia strony
         router.push(url);
       }

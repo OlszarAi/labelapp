@@ -6,7 +6,7 @@ import { useRouter, useParams } from 'next/navigation';
 import { LabelStorageService, SavedProject, Label } from '@/services/labelStorage';
 import { useAuth } from '@/lib/hooks/useAuth';
 import { useOptimizedAnimations } from '@/lib/hooks/useOptimizedAnimations';
-import LabelPreview from '@/components/labels/LabelPreview';
+import LabelPreview from '@/components/labels-legacy/LabelPreview';
 import { motion, AnimatePresence } from 'framer-motion';
 import LabelsSortingToolbar from '@/components/ui/LabelsSortingToolbar';
 
@@ -519,7 +519,7 @@ export default function ProjectDetailsPage() {
                   layout={animations.getItemProps(index).layout}
                   layoutId={animations.getItemProps(index).layoutId?.replace('item', `label-card-${label.id}`)}
                 >
-                  <Link href={`/editor?projectId=${projectId}&labelId=${label.id}`}>
+                  <Link href={`/editor-legacy?projectId=${projectId}&labelId=${label.id}`}>
                     <motion.div 
                       className="bg-gradient-to-br from-white to-gray-50 dark:from-gray-800 dark:to-gray-900 overflow-hidden shadow-md rounded-lg transition-all duration-300 hover:shadow-lg border border-gray-200/50 dark:border-gray-700/50 h-full relative group"
                       whileHover={{ 

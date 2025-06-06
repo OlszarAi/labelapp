@@ -3,7 +3,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
-import { Label, LabelElement } from '@/lib/types/label.types';
+import { Label, LabelElement } from '@/services/labelStorage';
 
 interface LabelCanvasProps {
   label: Label;
